@@ -1,0 +1,23 @@
+
+dec printf as func (fmt as byte[]*, ...);
+
+dec fact as func as word (num as word);
+
+def fact = func as word (num as word)
+
+    printf("hey! %d\n", num);
+
+    return 0;
+
+endf;
+
+def main = func as word (argc as word, argv as byte[]*[]*)
+  
+    fact(0);
+    fact(1);
+    fact(2);
+  
+    printf("Hello world! %d\n", argc);
+    return 0;
+    
+endf;
