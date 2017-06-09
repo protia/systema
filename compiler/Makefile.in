@@ -126,7 +126,7 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
-CFLAGS = @CFLAGS@
+CFLAGS = -Wall -Werror -pedantic
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -399,7 +399,7 @@ uninstall-am:
 all-local: $(CORE) $(MAIN)
 
 %.o:%.c $(HFILES)
-	$(CC) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(CORE): $(OBJECTS)
 	$(CC) -o $@ $^    

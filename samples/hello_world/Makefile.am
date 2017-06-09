@@ -10,7 +10,7 @@ $(OBJ): $(SRC) $(SYC)
 	$(SYC) -o $@ $<
 
 run: $(OBJ)
-	./$(OBJ)
+	./$(OBJ) arg1 arg2 arg3
 
 clean-local:
-	rm $(OBJ) *.o *.m4 *.s
+	rm -f $(OBJ) *.i *.s *.o

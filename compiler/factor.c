@@ -97,9 +97,6 @@ expr_t *parse_factor() {
         /* string literal */
         unget_lexeme();
         expr = parse_str_literal();
-    } else if (!strcmp(lex.val, "func") && !get_scope()) { 
-        /* function */
-        expr = parse_func();
     } else {
         print_err("expected identifier, literal, or (", 0);
         expr = alloc_expr();

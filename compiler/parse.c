@@ -1,6 +1,6 @@
 #include "common.h"
 
-int parse_file() {
+void parse_file() {
     /* File: dim_stmt */
     parse_dim_list();
     /* should encounter end of file */

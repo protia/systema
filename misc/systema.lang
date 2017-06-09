@@ -195,14 +195,28 @@
       <keyword>def</keyword>
       <keyword>dec</keyword>
       <keyword>typ</keyword>
+      <keyword>sub</keyword>
       <keyword>local</keyword>
       <keyword>as</keyword>
-      <keyword>endf</keyword>
+      <keyword>returns</keyword>
+      <keyword>begin</keyword>
       <keyword>if</keyword>
+      <keyword>and</keyword>
+      <keyword>or</keyword>
+      <keyword>between</keyword>
       <keyword>elsif</keyword>
       <keyword>else</keyword>
       <keyword>endif</keyword>
+      <keyword>case</keyword>
+      <keyword>of</keyword>
+      <keyword>others</keyword>
+      <keyword>esac</keyword>
+      <keyword>for</keyword>
+      <keyword>do</keyword>
+      <keyword>loop</keyword>
+      <keyword>while</keyword>
       <keyword>return</keyword>
+      <keyword>end</keyword>
     </context>
 
     <context id="operators" style-ref="operator">
@@ -212,10 +226,12 @@
     <context id="types" style-ref="type">
       <keyword>void</keyword>
       <keyword>byte</keyword>
-      <keyword>half</keyword>
-      <keyword>word</keyword>
-      <keyword>long</keyword>
+      <keyword>twin</keyword>
+      <keyword>quad</keyword>
+      <keyword>octt</keyword>
       <keyword>func</keyword>
+      <keyword>text</keyword>
+      <keyword>record</keyword>
     </context>
 
     <context id="storage-class" style-ref="storage-class">

@@ -18,6 +18,9 @@ int type_size(type_t *type) {
         size = type->subcount * type_size(type->subtype);
     } else if (type->specifier == TYPE_PTR) {
         size = 8;
+    } else if (type->specifier == TYPE_STRING) {
+        /* text is a pointer */
+        size = 8;
     }
     return size;
 }

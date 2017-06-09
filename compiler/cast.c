@@ -13,13 +13,20 @@ expr_t *type_cast(expr_t *before, type_t *new_type) {
         after->literal = 1;
         after->type    = new_type;
         literal_type_cast(before, after);
+    } else if (type_size(before->type) == type_size(new_type)) {
+        /* no need to perform casting */
+        after->type    = new_type;
+        after->addr    = before->addr;
+        after->indir   = before->indir;
+        after->literal = 0;
     } else {
         after->literal = 0;
+        after->indir   = 0; /* indirection is solved */
         after->type    = new_type;
         after->addr    = get_new_addr(type_size(after->type));
         /* perform casting */
-        if ((from>=TYPE_BYTE && from<=TYPE_DOBL || from==TYPE_PTR) &&
-            (to>=TYPE_BYTE && to<=TYPE_DOBL || to==TYPE_PTR)) {
+        if (((from>=TYPE_BYTE && from<=TYPE_DOBL) || from==TYPE_PTR) &&
+            ((to>=TYPE_BYTE && to<=TYPE_DOBL) || to==TYPE_PTR)) {
             /* integer/ptr to integer/ptr casting */
             emit_load(before, reg);
             emit_sign_extend(before->type, after->type, reg);

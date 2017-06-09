@@ -17,6 +17,8 @@ int arch_get_reg(int usage, int indx) {
     } else if (usage == REG_IDX) {
         /* return index register */
         return 4+indx;
+    } else {
+        return -1;
     }
 }
 
@@ -82,10 +84,9 @@ char *arch_get_reg_name(int reg, int size) {
     return name;
 }
 
-void arch_func_entry(int stack_size) {
+void arch_func_entry() {
     fprintf(emit_fd, "    pushq  %%rbp\n");
     fprintf(emit_fd, "    movq   %%rsp, %%rbp\n");
-    fprintf(emit_fd, "    subq   $`%d', %%rsp\n", stack_size);
 }
 
 void arch_func_leave() {
@@ -100,22 +101,22 @@ void arch_jmp(char *lbl) {
 
 void arch_loadb_literal(char literal, int reg) {
     char *reg_name = arch_get_reg_name(reg, 1);
-    fprintf(emit_fd, "    movb   $`%d', %s\n", literal, reg_name);
+    fprintf(emit_fd, "    movb   $%d, %s\n", literal, reg_name);
 }
 
 void arch_loadh_literal(short literal, int reg) {
     char *reg_name = arch_get_reg_name(reg, 2);
-    fprintf(emit_fd, "    movw   $`%d', %s\n", literal, reg_name);
+    fprintf(emit_fd, "    movw   $%d, %s\n", literal, reg_name);
 }
 
 void arch_loadw_literal(long literal, int reg) {
     char *reg_name = arch_get_reg_name(reg, 4);
-    fprintf(emit_fd, "    movl   $`%d', %s\n", literal, reg_name);
+    fprintf(emit_fd, "    movl   $%ld, %s\n", literal, reg_name);
 }
 
 void arch_loadl_literal(long long literal, int reg) {
     char *reg_name = arch_get_reg_name(reg, 8);
-    fprintf(emit_fd, "    movq   $`%d', %s\n", literal, reg_name);
+    fprintf(emit_fd, "    movq   $%lld, %s\n", literal, reg_name);
 }
 
 void arch_loadb(char *addr, int reg) {
@@ -247,6 +248,42 @@ void arch_extwl(int reg) {
     fprintf(emit_fd, "    movslq %s, %s\n", reg_name1, reg_name2);
 }
 
+void arch_extbh_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 1);
+    char *reg_name2 = arch_get_reg_name(reg, 2);
+    fprintf(emit_fd, "    movzbw %s, %s\n", reg_name1, reg_name2);
+}
+
+void arch_extbw_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 1);
+    char *reg_name2 = arch_get_reg_name(reg, 4);
+    fprintf(emit_fd, "    movzbl %s, %s\n", reg_name1, reg_name2);
+}
+
+void arch_extbl_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 1);
+    char *reg_name2 = arch_get_reg_name(reg, 8);
+    fprintf(emit_fd, "    movzbq %s, %s\n", reg_name1, reg_name2);
+}
+
+void arch_exthw_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 2);
+    char *reg_name2 = arch_get_reg_name(reg, 4);
+    fprintf(emit_fd, "    movzwl %s, %s\n", reg_name1, reg_name2);
+}
+
+void arch_exthl_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 2);
+    char *reg_name2 = arch_get_reg_name(reg, 8);
+    fprintf(emit_fd, "    movzwq %s, %s\n", reg_name1, reg_name2);
+}
+
+void arch_extwl_zero(int reg) {
+    char *reg_name1 = arch_get_reg_name(reg, 4);
+    char *reg_name2 = arch_get_reg_name(reg, 8);
+    fprintf(emit_fd, "    movzlq %s, %s\n", reg_name1, reg_name2);
+}
+
 void arch_addb(int src_reg, int dest_reg) {
     char *src_name  = arch_get_reg_name(src_reg,  1);
     char *dest_name = arch_get_reg_name(dest_reg, 1);
@@ -298,32 +335,28 @@ void arch_subl(int src_reg, int dest_reg) {
 void arch_mulb(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
     char *src_name  = arch_get_reg_name(src_reg,  1);
-    char *dest_name = arch_get_reg_name(dest_reg, 1);
     fprintf(emit_fd, "    mulb   %s\n", src_name);
 }
 
 void arch_mulh(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
     char *src_name  = arch_get_reg_name(src_reg,  2);
-    char *dest_name = arch_get_reg_name(dest_reg, 2);
-    fprintf(emit_fd, "    pushw  %%dx\n");
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    mulw   %s\n", src_name);
-    fprintf(emit_fd, "    popw   %%dx\n");
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_mulw(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
     char *src_name  = arch_get_reg_name(src_reg,  4);
-    char *dest_name = arch_get_reg_name(dest_reg, 4);
-    fprintf(emit_fd, "    pushl  %%edx\n");
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    mull   %s\n", src_name);
-    fprintf(emit_fd, "    popl   %%edx\n");
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_mull(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
     char *src_name  = arch_get_reg_name(src_reg,  8);
-    char *dest_name = arch_get_reg_name(dest_reg, 8);
     fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    mulq   %s\n", src_name);
     fprintf(emit_fd, "    popq   %%rdx\n");
@@ -331,80 +364,72 @@ void arch_mull(int src_reg, int dest_reg) {
 
 void arch_divb(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  1);
-    char *dest_name = arch_get_reg_name(dest_reg, 1);
+    char *src_name = arch_get_reg_name(src_reg, 1);
     fprintf(emit_fd, "    movsbw %%al, %%ax\n"); /* sign extend */
-    fprintf(emit_fd, "    divb   %s\n", dest_name);
+    fprintf(emit_fd, "    divb   %s\n", src_name);
 }
 
 void arch_divh(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  2);
-    char *dest_name = arch_get_reg_name(dest_reg, 2);
-    fprintf(emit_fd, "    pushw  %%dx\n");
+    char *src_name = arch_get_reg_name(src_reg, 2);
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cwd\n"); /* sign extend */
-    fprintf(emit_fd, "    divw   %s\n", dest_name);
-    fprintf(emit_fd, "    popw   %%dx\n");
+    fprintf(emit_fd, "    divw   %s\n", src_name);
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_divw(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  4);
-    char *dest_name = arch_get_reg_name(dest_reg, 4);
-    fprintf(emit_fd, "    pushl  %%edx\n");
+    char *src_name = arch_get_reg_name(src_reg, 4);
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cdq\n"); /* sign extend */
-    fprintf(emit_fd, "    divl   %s\n", dest_name);
-    fprintf(emit_fd, "    popl   %%edx\n");
+    fprintf(emit_fd, "    divl   %s\n", src_name);
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_divl(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  8);
-    char *dest_name = arch_get_reg_name(dest_reg, 8);
+    char *src_name = arch_get_reg_name(src_reg, 8);
     fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cqo\n"); /* sign extend */
-    fprintf(emit_fd, "    divq   %s\n", dest_name);
+    fprintf(emit_fd, "    divq   %s\n", src_name);
     fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_modb(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  1);
-    char *dest_name = arch_get_reg_name(dest_reg, 1);
+    char *src_name = arch_get_reg_name(src_reg, 1);
     fprintf(emit_fd, "    movsbw %%al, %%ax\n"); /* sign extend */
-    fprintf(emit_fd, "    divb   %s\n", dest_name);
+    fprintf(emit_fd, "    divb   %s\n", src_name);
     fprintf(emit_fd, "    movb   %%ah, %%al");
 }
 
 void arch_modh(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  2);
-    char *dest_name = arch_get_reg_name(dest_reg, 2);
-    fprintf(emit_fd, "    pushw  %%dx\n");
+    char *src_name = arch_get_reg_name(src_reg, 2);
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cwd\n"); /* sign extend */
-    fprintf(emit_fd, "    divw   %s\n", dest_name);
+    fprintf(emit_fd, "    divw   %s\n", src_name);
     fprintf(emit_fd, "    movw   %%dx, %%ax");
-    fprintf(emit_fd, "    popw   %%dx\n");
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_modw(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  4);
-    char *dest_name = arch_get_reg_name(dest_reg, 4);
-    fprintf(emit_fd, "    pushl  %%edx\n");
+    char *src_name = arch_get_reg_name(src_reg, 4);
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cdq\n"); /* sign extend */
-    fprintf(emit_fd, "    divl   %s\n", dest_name);
+    fprintf(emit_fd, "    divl   %s\n", src_name);
     fprintf(emit_fd, "    movl   %%edx, %%eax");
-    fprintf(emit_fd, "    popl   %%edx\n");
+    fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
 void arch_modl(int src_reg, int dest_reg) {
     /* src_reg is guaranteed to be BX, while dest_reg is AX */
-    char *src_name  = arch_get_reg_name(src_reg,  8);
-    char *dest_name = arch_get_reg_name(dest_reg, 8);
-    fprintf(emit_fd, "    pushq  %rdx\n");
+    char *src_name = arch_get_reg_name(src_reg, 8);
+    fprintf(emit_fd, "    pushq  %%rdx\n");
     fprintf(emit_fd, "    cqo\n"); /* sign extend */
-    fprintf(emit_fd, "    divq   %s\n", dest_name);
+    fprintf(emit_fd, "    divq   %s\n", src_name);
     fprintf(emit_fd, "    movq   %%rdx, %%rax");
     fprintf(emit_fd, "    popq   %%rdx\n");
 }
@@ -845,6 +870,10 @@ void arch_popl(int reg) {
     fprintf(emit_fd, "    popq   %s\n", reg_name);
 }
 
+void arch_adjust_stack(int stack_size) {
+    fprintf(emit_fd, "    lea   -%d(%%rbp), %%rsp\n", stack_size);
+}
+
 void arch_loadarg(int arg, int reg) {    
     char *reg_name = arch_get_reg_name(reg, 8);
     if (arg == 0) {
@@ -860,7 +889,7 @@ void arch_loadarg(int arg, int reg) {
     } else if (arg == 5) {
         fprintf(emit_fd, "    movq   %%r9, %s\n", reg_name);  
     } else {
-        fprintf(emit_fd, "    movq   %d(%%rbp), %s\n", (arg-4)*8);
+        fprintf(emit_fd, "    movq   %d(%%rbp), %s\n", (arg-4)*8, reg_name);
     }
 }
 
@@ -885,16 +914,16 @@ void arch_pusharg(int reg, int arg) {
 
 void arch_poparg(int arg, int reg) {
     if (arg > 5) {
-        fprintf(emit_fd, "    add   $`8', %%esp\n");
+        fprintf(emit_fd, "    add   $8, %%esp\n");
     }
 }
 
 void arch_call(char *func_addr) {
-    fprintf(emit_fd, "    movl   $`0', %%eax\n");
+    fprintf(emit_fd, "    movl   $0, %%eax\n");
     fprintf(emit_fd, "    call   %s\n", func_addr);
 }
 
 void arch_call_indir(char *func_addr) {
-    fprintf(emit_fd, "    movl   $`0', %%eax\n");
+    fprintf(emit_fd, "    movl   $0, %%eax\n");
     fprintf(emit_fd, "    call   *%s\n", func_addr);
 }

@@ -15,7 +15,7 @@ int type_match(type_t *type1, type_t *type2, int strict) {
    } else if (type1->specifier == TYPE_PTR) {
         /* type2 must be pointer to same type */
         if (type2->specifier == TYPE_PTR) {
-            ret = type_match(type1->subtype, type2->subtype, 0);
+            ret = type_match(type1->subtype, type2->subtype, 1);
         } else {
             ret = 0;
         }
@@ -23,10 +23,13 @@ int type_match(type_t *type1, type_t *type2, int strict) {
               type2->specifier == TYPE_ARRAY) {
         if (strict) {
             ret = (type1->subcount == type2->subcount) &&
-                  type_match(type1, type2, 0);  
+                  type_match(type1->subtype, type2->subtype, 1);
         } else {
             ret = type_match(type1->subtype, type2->subtype, 0);
         }
+   } else if (type1->specifier == TYPE_STRING &&
+              type2->specifier == TYPE_STRING) {
+        return 1;
    } else {
         /* type checking fails */
         ret = 0;

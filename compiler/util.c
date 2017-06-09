@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-int itoa(char *arr, int num) {
+void itoa(char *arr, int num) {
     sprintf(arr, "%d", num); /* FIXME */
 }
 

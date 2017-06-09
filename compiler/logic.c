@@ -4,16 +4,17 @@
 #include "common.h"
 
 expr_t *parse_logic_and() {
-    expr_t *expr, *expr1, *expr2, *expr3;
-    char *lbl1, *lbl2;
-    unsigned long long val1, val2;
-    int err = 0, gen_code = 0;
+    expr_t *expr, *expr1 /*, *expr2, *expr3*/;
+    //char *lbl1, *lbl2;
+    //unsigned long long val1, val2;
+    //int err = 0, gen_code = 0;
     /* logic_and: bitwise_or ('&&' logic_and | lambda) */
     expr1 = parse_bitwise_or();
     /* lookahead */
     get_lexeme();
     /* &&? */
     while (!strcmp(lex.val, "&&")) {
+#if 0
         /* generate labels */
         lbl1 = get_new_label();
         lbl2 = get_new_label();
@@ -104,6 +105,7 @@ expr_t *parse_logic_and() {
         expr1 = expr3;
         /* move to next */
         get_lexeme();
+#endif
     }
     /* no more */
     unget_lexeme();
@@ -113,16 +115,17 @@ expr_t *parse_logic_and() {
 }
 
 expr_t *parse_logic_or() {
-    expr_t *expr, *expr1, *expr2, *expr3;
-    char *lbl1, *lbl2;
-    unsigned long long val1, val2;
-    int err = 0, gen_code = 0;
+    expr_t *expr, *expr1/*, *expr2, *expr3*/;
+    //char *lbl1, *lbl2;
+    //unsigned long long val1, val2;
+    //int err = 0, gen_code = 0;
     /* logic_or: logic_and ('||' logic_or | lambda) */
     expr1 = parse_logic_and();
     /* lookahead */
     get_lexeme();
     /* ||? */
     while (!strcmp(lex.val, "||")) {
+#if 0
         /* generate labels */
         lbl1 = get_new_label();
         lbl2 = get_new_label();
@@ -213,6 +216,7 @@ expr_t *parse_logic_or() {
         expr1 = expr3;
         /* move to next */
         get_lexeme();
+#endif
     }
     /* no more */       
     unget_lexeme();

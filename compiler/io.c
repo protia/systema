@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* low-level I/O with systema file */
 
@@ -9,7 +10,7 @@ char cur_line[MAX_BUF] = "";
 int line_size = 0;
 int off = 0;
 
-char file_name[MAX_BUF] = "dumb.c";
+char *file_name = "dumb.c";
 int lineno = 0;
 int col = 0;
 int last_col = 0;
@@ -43,28 +44,41 @@ int get_col() {
 }
 
 int get_char() {
-    int eof = 0;
+    int ret = 0, i;
+    char *eptr;
     if (line_size == off) {
         /* we need to read new line */
         if (!fgets(cur_line, MAX_BUF-1, fd)) {
             /* EOF */
-            eof = 1;
+            ret = EOF;
         } else {
-            line_size = strlen(cur_line);
-            last_col = col;
-            off = 0;
-            col = 0;
-            lineno++;
+            /* hash lines have special treatment */
+            if (cur_line[0] == '#') {
+                /* parse hash line */
+                lineno = strtol(&cur_line[2], &eptr, 10)-1;
+                /* get file name */
+                file_name = malloc(1024);
+                for (i = 2; eptr[i] != '"'; i++) {
+                    file_name[i-2] = eptr[i];
+                }
+                file_name[i] = 0;
+                /* get next token */
+                ret = get_char();
+            } else {
+                line_size = strlen(cur_line);
+                last_col = col;
+                off = 1;
+                col = 1;
+                lineno++;
+                ret = cur_line[0];
+            }
         }
-    }
-    /* read from line buffer */
-    if (!eof) {
+    } else {
+        ret = cur_line[off];
         off++;
         col++;
-        return cur_line[off-1];
-    } else {
-        return EOF;
     }
+    return ret;
 }
 
 int next_char() {

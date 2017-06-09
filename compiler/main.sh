@@ -17,15 +17,15 @@ if [ $# != 3 ]; then
 fi;
 
 # get names of intermediate files
-M4FILE=$(basename $INFILE .sy).m4
+IFILE=$(basename $INFILE .sy).i
 SFILE=$(basename $INFILE .sy).s
 OFILE=$(basename $INFILE .sy).o
 
 # (1) preprocess
+cpp $INFILE > $IFILE
 
 # (2) compile
-$SYC_CORE $INFILE $M4FILE
-m4 $M4FILE > $SFILE
+$SYC_CORE $IFILE $SFILE
 
 # (3) assemble
 as -o $OFILE $SFILE

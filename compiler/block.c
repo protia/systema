@@ -3,9 +3,7 @@
 
 #include "common.h"
 
-int parse_stmt_list();
-
-int parse_if() {
+void parse_if() {
     expr_t *expr;
     char *lbl2 = get_new_label();
     char *lbl1 = get_new_label();
@@ -110,30 +108,28 @@ int parse_if() {
     }
 }
 
-int parse_case() {
+void parse_case() {
 
 }
 
-int parse_for() {
+void parse_for() {
 
 }
 
-int parse_while() {
+void parse_while() {
 
 }
 
-int parse_stmt_list() {
+void parse_stmt_list() {
     int done = 0;
     while(!done) {
         get_lexeme();
-        if (!strcmp(lex.val, "endf") ||
+        if (!strcmp(lex.val, "end") ||
             !strcmp(lex.val, "elsif") ||
             !strcmp(lex.val, "else") ||
             !strcmp(lex.val, "endif") ||
-            !strcmp(lex.val, "esac") ||
-            !strcmp(lex.val, "next") ||
+            !strcmp(lex.val, "loop") ||
             !strcmp(lex.val, "return") ||
-            !strcmp(lex.val, "done") ||
             lex.type == EOF) {
             /* done */
             unget_lexeme();
@@ -167,143 +163,4 @@ int parse_stmt_list() {
             }
         }
     }
-}
-
-expr_t *parse_func() {
-    int done = 0;
-    int arg_count = 0;
-    int reg = emit_get_reg(REG_ACC, 0);
-    sym_t *sym;
-    expr_t *expr;
-    type_t *type;
-    param_list_t *param_list;
-
-    /* function! */
-    type = parse_type();
-    
-    /* check header validity */
-    if (type->specifier == TYPE_FUNC) {
-    
-        /* put code generated in func macro */
-        emit_def_m4_macro("func");
-    
-        /* enter func scope */
-        enter_scope();
-    
-        /* initialize stack frame */
-        init_stack_frame();
-
-        /* loop over parameters */
-        param_list = type->param_list;
-        while (param_list->count != 0 && !param_list->any) {
-            /* add to symtab */
-            if (get_sym(param_list->name)) {
-                print_err("identifier already declared", 0);
-            } else {
-                /* add sym to symtab */
-                sym = add_sym(param_list->name, param_list->type);
-                /* set symbol value */
-                sym->val = get_new_addr(type_size(param_list->type));
-                /* create expr as container */
-                expr = alloc_expr();
-                expr->type = param_list->type;
-                expr->addr = sym->val;
-                /* load argument into variable */
-                if (param_list->type->specifier == TYPE_BYTE ||
-                    param_list->type->specifier == TYPE_HALF ||
-                    param_list->type->specifier == TYPE_WORD ||
-                    param_list->type->specifier == TYPE_DOBL ||
-                    param_list->type->specifier == TYPE_PTR) {
-                    /* integral type */
-                    emit_loadarg(arg_count, reg);
-                    emit_store(reg, expr);
-                    arg_count++;
-                } else if (param_list->type->specifier == TYPE_ARRAY) {
-                    /* array passed */
-                } else if (param_list->type->specifier == TYPE_RECORD) {
-                    /* record passed */
-                } else {
-                    /* invalid type */
-                    print_err("invalid parameter types",0);
-                } 
-            }
-            /* next parameter */
-            param_list = param_list->sublist;
-        }
-
-        /* evaluate dims */
-        parse_dim_list();
-
-        /* evaluate statements */
-        parse_stmt_list();
-        
-        /* evaluate return stmt if applicable */
-        if (type->rettype) {
-            /* return */
-            get_lexeme();
-            if (strcmp(lex.val, "return")) {
-                print_err("expected return", 0);
-                unget_lexeme();
-            }
-            /* evaluate expression */
-            expr = parse_expr();
-            /* type must be matching */
-            if (!type_match(expr->type, type->rettype, 1)) {
-                print_err("incompatible return type", 0);
-            } else {
-                /* needs casting? */
-                if (expr->type->specifier != type->rettype->specifier) {
-                    expr = type_cast(expr, type->rettype);
-                }
-                /* load to accumulator */
-                emit_load(expr, reg);
-            }
-            /* read ; */
-            get_lexeme();
-            if (strcmp(lex.val, ";")) {
-                print_err("expected ;", 0);
-                unget_lexeme();
-            }
-        }
-
-        /* endf */
-        get_lexeme();
-        if (strcmp(lex.val, "endf")) {
-            print_err("expected endf", 0);
-            unget_lexeme();
-        }
-
-        /* function termination */
-        emit_func_leave();
-        
-        /* code generation done */    
-        emit_fed_m4_macro();
-    
-        /* function entry point */
-        emit_func_entry();
-    
-        /* function code */
-        emit_use_m4_macro("func");
-
-        /* delete symbols of current scope */
-        del_syms();
-
-        /* exit func scope */
-        leave_scope();
-
-        /* evaluate expr as function */
-        expr = alloc_expr();
-        expr->literal         = 1;
-        expr->type            = type;
-        expr->type->complete  = 1;
-        
-    } else {
-    
-        /* invalid function header */
-        expr = alloc_expr();
-        
-    }
-
-    /* done */
-    return expr;
 }

@@ -11,6 +11,7 @@
 #define DIM_TYP 0
 #define DIM_DEC 1
 #define DIM_DEF 2
+#define DIM_SUB 3
     
 /* storage classes */
 #define STORE_CODE   0
@@ -30,16 +31,17 @@
 #define LEX_INVALID       7
 
 /* type specifiers */
-#define TYPE_VOID   0
-#define TYPE_BYTE   1
-#define TYPE_HALF   2
-#define TYPE_WORD   3
-#define TYPE_DOBL   4
-#define TYPE_TYPEOF 5
-#define TYPE_ARRAY  6
-#define TYPE_PTR    7
-#define TYPE_RECORD 8
-#define TYPE_FUNC   9
+#define TYPE_VOID    0
+#define TYPE_BYTE    1
+#define TYPE_HALF    2
+#define TYPE_WORD    3
+#define TYPE_DOBL    4
+#define TYPE_FUNC    5
+#define TYPE_STRING  6
+#define TYPE_RECORD  7
+#define TYPE_PTR     8
+#define TYPE_ARRAY   9
+#define TYPE_TYPEOF  10
 
 typedef struct lexeme {
     char val[1024];
@@ -101,7 +103,7 @@ typedef struct param_list {
 extern lexeme_t lex;
 
 /* util.c */
-int itoa(char *arr, int num);
+void itoa(char *arr, int num);
 
 /* io.c */
 void io_init(FILE *fd);
@@ -124,7 +126,7 @@ void unget_lexeme();
 /* arch.c */
 void arch_sp_fmt(char *str, int offset);
 int arch_get_reg(int usage, int indx);
-void arch_func_entry(int stack_size);
+void arch_func_entry();
 void arch_func_leave();
 void arch_jmp(char *lbl);
 void arch_loadb_literal(char literal, int reg);
@@ -154,6 +156,12 @@ void arch_extbl(int reg);
 void arch_exthw(int reg);
 void arch_exthl(int reg);
 void arch_extwl(int reg);
+void arch_extbh_zero(int reg);
+void arch_extbw_zero(int reg);
+void arch_extbl_zero(int reg);
+void arch_exthw_zero(int reg);
+void arch_exthl_zero(int reg);
+void arch_extwl_zero(int reg);
 void arch_addb(int src_reg, int dest_reg);
 void arch_addh(int src_reg, int dest_reg);
 void arch_addw(int src_reg, int dest_reg);
@@ -238,6 +246,7 @@ void arch_popb(int reg);
 void arch_poph(int reg);
 void arch_popw(int reg);
 void arch_popl(int reg);
+void arch_adjust_stack(int stack_size);
 void arch_loadarg(int arg, int reg);
 void arch_pusharg(int reg, int arg);
 void arch_poparg(int arg, int reg);
@@ -252,8 +261,8 @@ char *get_new_param(int size);
 char *get_new_label();
 
 /* scope.c */
-int enter_scope();
-int leave_scope();
+void enter_scope();
+void leave_scope();
 int get_scope();
 
 /* alloc.c */
@@ -279,6 +288,7 @@ void emit_func_leave();
 void emit_jmp(char *lbl);
 int emit_get_reg(int usage, int indx);
 void emit_load(expr_t *expr, int reg);
+void emit_loadaddr(expr_t *expr, int reg);
 void emit_store(int reg, expr_t *expr);
 void emit_sign_extend(type_t *src_type, type_t *dest_type, int reg);
 void emit_add(type_t *type, int src_reg, int dest_reg);
@@ -300,8 +310,9 @@ void emit_blt(type_t *type, int reg1, int reg2, char *lbl);
 void emit_ble(type_t *type, int reg1, int reg2, char *lbl);
 void emit_bze(type_t *type, int reg, char *lbl);
 void emit_bnz(type_t *type, int reg, char *lbl);
+void emit_adjust_stack(int stack_size);
 void emit_loadarg(int arg, int reg);
-void emit_pusharg(int reg, int arg);
+void emit_pusharg(int size, int reg, int arg);
 void emit_poparg(int arg, int reg);
 void emit_call(expr_t *expr);
 void emit_def_m4_macro(char *macro_name);
@@ -310,6 +321,7 @@ void emit_use_m4_macro(char *macro_name);
 
 /* literal.c */
 void literal_type_cast(expr_t *before, expr_t *after);
+void literal_do_binary(expr_t *expr, expr_t *op1, char *op, expr_t *op2);
 int eval_literal_int(char *str);
 
 /* symtab.c */
@@ -326,11 +338,20 @@ int type_match(type_t *type1, type_t *type2, int strict);
 /* cast.c */
 expr_t *type_cast(expr_t *before, type_t *new_type);
 
+/*func.c */
+expr_t *parse_func_call(expr_t *func);
+type_t *parse_func_header();
+void parse_func(sym_t *sym);
+
+/* op.c */
+void do_assign(expr_t *dest, expr_t *src);
+expr_t *do_binary(expr_t *op1, char *op, expr_t *op2);
+
 /* type.c */
 type_t *parse_type();
 
 /* block.c */
-expr_t *parse_func();
+void parse_stmt_list();
 
 /* factor.c */
 expr_t *parse_factor();
@@ -360,9 +381,9 @@ expr_list_t *parse_expr_list();
 id_list_t *parse_id_list();
 
 /* dim.c */
-int parse_dim_list();
+void parse_dim_list();
 
 /* parse.c */
-int parse_file();
+void parse_file();
 
 #endif /* __COMMON_H */

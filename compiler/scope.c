@@ -2,11 +2,11 @@
 
 int scope = 0;
 
-int enter_scope() {
+void enter_scope() {
     scope++;
 }
 
-int leave_scope() {
+void leave_scope() {
     scope--;
 }
 

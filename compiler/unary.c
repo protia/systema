@@ -3,149 +3,113 @@
 
 #include "common.h"
 
-void do_unary_op() {
-
-}
-
-void push_recursively(expr_list_t *expr_list, int cur_arg) {
-    expr_t *expr;
-    type_t *type;
-    int arg_count;
-    int reg = emit_get_reg(REG_ACC, 0);
-    if (expr_list->count == 0) {
-        /* done */
-    } else {
-        expr = expr_list->expr;
-        type = expr->type;
-        /* determine arg_count */
-        if (type->specifier == TYPE_BYTE ||
-            type->specifier == TYPE_HALF ||
-            type->specifier == TYPE_WORD ||
-            type->specifier == TYPE_DOBL ||
-            type->specifier == TYPE_PTR) {
-            arg_count = 1;
-        } else {
-            arg_count  = 0;
-        }
-        /* next argument */
-        push_recursively(expr_list->sublist, cur_arg+arg_count);
-        /* push argument into stack */
-        if (type->specifier == TYPE_BYTE ||
-            type->specifier == TYPE_HALF ||
-            type->specifier == TYPE_WORD ||
-            type->specifier == TYPE_DOBL ||
-            type->specifier == TYPE_PTR) {
-            emit_load(expr, reg);
-            emit_pusharg(reg, cur_arg);
-        } else {
-            /* array or record */
-        }
-    }
-    
-}
-
-expr_t *parse_func_call(expr_t *func) {
-    int done = 0, err = 0, i = 0;
-    expr_t *expr;
-    param_list_t *param_list = func->type->param_list;
-    expr_list_t *expr_list, *top;
-    int reg = emit_get_reg(REG_ACC, 0);
-    /* read ( */
-    get_lexeme();
-    /* read par list */
-    expr_list = parse_expr_list();
-    top = expr_list;
-    /* read ) */
-    get_lexeme();
-    if (strcmp(lex.val, ")")) {
-        print_err("expected )", 0);
-        unget_lexeme();
-    }
-    /* all parameters must match function definition */
-    while(!done) {
-        if (!expr_list->count || !param_list->count) {
-            if (param_list->any) {
-                param_list = param_list->sublist;
-            }
-            done = 1;
-        } else {
-            /* match parameter with type */
-            i++;
-            if (param_list->any) {
-                /* any type is acceptable, really */
-            } else {
-                if (!type_match(param_list->type,expr_list->expr->type,1)) {
-                    if (!err) {
-                        print_err("function call: parameters invalid",0);
-                    }
-                    err = 1;
-                } else {
-                    /* implicit cast needed? */
-                    if (param_list->type->specifier != 
-                        expr_list->expr->type->specifier) {
-                        expr_list->expr = type_cast(expr, param_list->type);
-                    }
-                }
-            }
-            /* move forward */
-            expr_list = expr_list->sublist;
-            if (!param_list->any) {
-                param_list = param_list->sublist;
-            }
-        }
-    }
-    /* parameter count is valid? */
-    if (expr_list->count) {
-        print_err("too many parameters for function", 0);
-        err = 1;
-    } else if (param_list->count) {
-        print_err("too few parameters for function", 0);
-        err = 1;
-    }
-    if (!err) {
-        /* push args to stack */
-        push_recursively(top, 0);    
-        /* issue call to function */ 
-        emit_call(func);
-    }
-    /* ret value */
-    expr = alloc_expr();
-    if (func->type->rettype) {
-        expr->type = func->type->rettype;
-        expr->addr = get_new_addr(type_size(expr->type));
-        emit_store(reg, expr);
-    } else {
-        expr->type->specifier = TYPE_VOID;
-    }
-    /* done */
-    return expr;
-}
-
 expr_t *parse_unary_post() {
-    expr_t *expr, *expr1;
+    expr_t *expr, *expr1, *backup, *res;
     type_t *type;
     int done = 0;
+    int reg = emit_get_reg(REG_ACC, 0);
     /* unary_post: factor post_op* */
-    expr1 = parse_factor();
+    expr = parse_factor();
+    /* literal 1 */
+    expr1 = alloc_expr();
+    expr1->literal = 1;
+    expr1->type->specifier = TYPE_WORD;
+    expr1->word_literal_val = 1;
     /* loop over post operators */
     get_lexeme();
     done = 0;
     while(!done) {
         if (!strcmp(lex.val, "++")) {
+            /* copy expr into another one */
+            backup = alloc_expr();
+            backup->type = expr->type;
+            backup->addr = get_new_addr(type_size(expr->type));
+            backup->lvalue = 1;
+            /* copy into addr */
+            do_assign(backup, expr);
             /* post increment */
+            res = do_binary(expr, "+", expr1);
+            /* perform assignment */
+            do_assign(expr, res);
+            /* return the backed up value */
+            expr = backup;
+            /* expr is no longer an lvalue */
+            expr->lvalue = 0;
         } else if (!strcmp(lex.val, "--")) {
-            /* post decrement */
+            /* copy expr into another one */
+            backup = alloc_expr();
+            backup->type = expr->type;
+            backup->addr = get_new_addr(type_size(expr->type));
+            backup->lvalue = 1;
+            /* copy into addr */
+            do_assign(backup, expr);
+            /* post increment */
+            res = do_binary(expr, "-", expr1);
+            /* perform assignment */
+            do_assign(expr, res);
+            /* return the backed up value */
+            expr = backup;
+            /* expr is no longer an lvalue */
+            expr->lvalue = 0;
         } else if (!strcmp(lex.val, "(")) {
             /* function call */
-            if (expr1->type->specifier != TYPE_FUNC) {
+            if (expr->type->specifier != TYPE_FUNC) {
                 print_err("error: call to a non-function", 0);
                 done = 1;
             } else {
                 unget_lexeme();
-                expr1 = parse_func_call(expr1);
+                expr = parse_func_call(expr);
             }
         } else if (!strcmp(lex.val, "[")) {
             /* array subscript */
+            if (expr->type->specifier == TYPE_ARRAY) {
+                /* read array index */
+                expr1 = parse_expr();
+                /* read ] */
+                get_lexeme();
+                if (strcmp(lex.val, "]")) {
+                    unget_lexeme();
+                    print_err("expected ]", 0);
+                }
+                /* subscript must be integer */
+                if (expr1->type->specifier >= TYPE_BYTE &&
+                    expr1->type->specifier <= TYPE_DOBL) {
+                    /* load the address of the first element in the 
+                     * array to a pointer to array type
+                     * then perform pointer arithmetic
+                     * ex: to evaluate arr[i]
+                     *        let p pointer = &arr[0]
+                     *            p += i
+                     *            return *p as indirect lvalue var 
+                     */
+                    res = alloc_expr();
+                    res->type->specifier = TYPE_PTR;
+                    res->type->complete = 1;
+                    res->type->subtype = expr->type->subtype;
+                    /* p = &arr[0] */
+                    if (!expr->indir) {
+                        res->addr = get_new_addr(type_size(res->type));
+                        emit_loadaddr(expr, reg);
+                        emit_store(reg, res);
+                    } else {
+                        res->addr = expr->addr;
+                    }
+                    /* p += i */
+                    res = do_binary(res, "+", expr1);
+                    /* now res holds the destined address */
+                    res->type = res->type->subtype;
+                    res->lvalue = 1;
+                    res->indir = 1;
+                    /* return res */
+                    expr = res;                    
+                } else {
+                    print_err("array subscript must be integer", 0);
+                    expr->type = expr->type->subtype;
+                }
+            } else {
+                /* must be applied to an array type */
+                print_err("[] can't be applied to a non-array type", 0);
+            }
         } else if (!strcmp(lex.val, ".")) {
             /* record member */
         } else if (!strcmp(lex.val, "->")) {
@@ -153,7 +117,7 @@ expr_t *parse_unary_post() {
         } else if (!strcmp(lex.val, "as")) {
             /* type casting! */
             type = parse_type();
-            expr1->type = type;
+            expr = type_cast(expr, type);
         } else {
             /* no more */
             unget_lexeme();
@@ -164,82 +128,110 @@ expr_t *parse_unary_post() {
             get_lexeme();
         }
     }
-    /* nothing more to do */
-    expr = expr1;
     /* done */
     return expr;
 }
 
 expr_t *parse_unary_pre() {
-    expr_t *expr, *expr1, *expr2;
-    type_t *type;
+    expr_t *expr, *tmp;
+    int reg = emit_get_reg(REG_ACC, 0);
     /* unary_pre: (unary_op unary_pre | unary_post) */
     get_lexeme();
     if (!strcmp(lex.val, "++")) {
         /* pre increment */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary ++ */
         
         /* set expr */
         
     } else if (!strcmp(lex.val, "--")) {
         /* pre decrement */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary -- */
         
         /* set expr */
-        
+                
     } else if (!strcmp(lex.val, "+")) {
         /* unary plus */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary + */
         
         /* set expr */
         
     } else if (!strcmp(lex.val, "-")) {
         /* unary minus */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary - */
         
         /* set expr */
         
     } else if (!strcmp(lex.val, "!")) {
         /* unary not */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary ! */
         
         /* set expr */
         
     } else if (!strcmp(lex.val, "~")) {
         /* unary bitwise not */
-        expr1 = parse_unary_pre();
+        expr = parse_unary_pre();
         /* generate code for unary ~ */
         
         /* set expr */
         
     } else if (!strcmp(lex.val, "*")) {
         /* unary dereference */
-        expr1 = parse_unary_pre();
-        /* generate code for deref */
-        
-        /* set expr */
+        expr = parse_unary_pre();
+        /* dereference a pointer */
+        if (expr->type->specifier == TYPE_PTR) {
+            tmp = alloc_expr();
+            tmp->type   = expr->type;
+            tmp->addr   = get_new_addr(type_size(expr->type));
+            /* store pointer value in tmp's addr */
+            emit_load(expr, reg);
+            emit_store(reg, tmp);
+            /* set tmp type to that of pointed expr and mark indirect */
+            tmp->type = tmp->type->subtype;
+            tmp->indir  = 1;
+            tmp->lvalue = expr->lvalue;
+            /* return tmp */
+            expr = tmp;
+        } else {
+            print_err("can't dereference non lvalue expressions", 0);
+        }
         
     } else if (!strcmp(lex.val, "&")) {
         /* unary address of */
-        expr1 = parse_unary_pre();
-        /* generate address of */
-        
-        /* set expr */
-
+        expr = parse_unary_pre();
+        /* load the address of the expression
+         * in a temporary variable
+         */
+        if (expr->lvalue) {
+            tmp = alloc_expr();
+            tmp->type->specifier = TYPE_PTR;
+            tmp->type->complete = 1;
+            tmp->type->subtype = expr->type;
+            /* p = &var */
+            if (!expr->indir) {
+                tmp->addr = get_new_addr(type_size(expr->type));
+                emit_loadaddr(expr, reg);
+                emit_store(reg, tmp);
+            } else {
+                tmp->addr = expr->addr;
+            }
+            /* return tmp */
+            expr = tmp;
+        } else {
+            print_err("can't reference a non lvalue expressions", 0);
+        }
     } else {
         /* no unary operator */
         unget_lexeme();
-        expr1 = parse_unary_post();
+        expr = parse_unary_post();
     }
     
     /* no more */
     unget_lexeme();
-    expr = expr1;
     /* done */
     return expr;
 }

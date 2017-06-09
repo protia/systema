@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <string.h>
 
 #include "common.h"
@@ -16,9 +15,12 @@ int parse_dim_keyword() {
     } else if (!strcmp(lex.val, "typ")) {
         /* type */
         dim_type = DIM_TYP;
+    } else if (!strcmp(lex.val, "sub")) {
+        /* subroutine */
+        dim_type = DIM_SUB;
     } else {
         /* expected dim keyword */
-        print_err("expected def, dec, or typ keyword.", 0);
+        print_err("expected def, dec, typ, or sub keyword", 0);
         /* assume default */
         dim_type = DIM_DEF;
     }
@@ -33,7 +35,7 @@ int parse_local_keyword() {
         ret = 1;
     } else {
         unget_lexeme();
-        ret = 0;    
+        ret = 0;
     }
     return ret;
 }
@@ -42,12 +44,13 @@ type_t *parse_as_type() {
     /* dim_type: 'as' type | lambda */
     type_t *type = NULL;
     get_lexeme();
-    if (!strcmp(lex.val, "as")) {
-        /* parse type */
-        type = parse_type(1);
-    } else {
+    if (strcmp(lex.val, "as") && strcmp(lex.val, ":")) {
         unget_lexeme();
+        print_err("expected as or :", 0);
     }
+    /* parse type */
+    type = parse_type();
+    /* done */
     return type;
 }
 
@@ -55,7 +58,7 @@ expr_list_t *parse_ass() {
     /* ass: '=' expr_list | lambda */
     expr_list_t *ret = NULL;
     get_lexeme();
-    if (!strcmp(lex.val, "=")) {
+    if (!strcmp(lex.val, ":=")) {
         /* parse expr_list */
         ret = parse_expr_list();
     } else {
@@ -69,22 +72,17 @@ int parse_dim_stmt() {
     type_t *type;
     expr_list_t *expr_list, *eptr;
     id_list_t *id_list, *iptr;
-    int *storage;
-    type_t **types;
     int local = 0;
     int dim_type;
-    /* dim_stmt: dim_keyword local_keyword id_list as_type dim_ass ;
+        
+    /* dim_stmt: dim_keyword local_keyword id_list 
+     *           (as_type dim_ass | func_body) ;
      */
-     
-    /* put all generated code in m4 macro */
-    if (!get_scope()) {
-        emit_def_m4_macro("def");
-    }
     
-    /* 1: encounter dim keyword */
+    /* parse dim keyword */
     dim_type = parse_dim_keyword();
 
-    /* 2: encounter local keyword */
+    /* parse local keyword */
     local = parse_local_keyword();
     
     /* word local cannot be used within stack scope */
@@ -99,7 +97,7 @@ int parse_dim_stmt() {
         err = 1;
     }
 
-    /* 3: id_list */
+    /* parse id_list */
     id_list = parse_id_list();
 
     /* id_list size can't be zero */
@@ -108,139 +106,93 @@ int parse_dim_stmt() {
         err = 1;
     }
 
-    /* 4: parse type */
-    type = parse_as_type();
+    /* function or variable? */
+    if (dim_type != DIM_SUB) {
+    
+        /* parse type */
+        type = parse_as_type();
 
-    /* 5: parse ass */
-    expr_list = parse_ass();
-    
-    /* code generation done */
-    if (!get_scope()) {
-        emit_fed_m4_macro();
-    }
-    
-    /* if no type & no expr_list, generate error */
-    if (!type && !expr_list) {
-        print_err("either type or initial value should be specified", 0);
-        err = 1;
-    }
-    
-    /* if expr_list is specified, check size */
-    if (expr_list && expr_list->count != id_list->count) {
-        print_err("expression list size <> identifiers", 0); 
-        err = 1;       
-    }
-
-    /* dec and typ cannot have initializers */
-    if ((dim_type == DIM_TYP || dim_type == DIM_DEC) && expr_list) {
-        print_err("dec/typ cannot have initializers", 0); 
-        err = 1;  
-    }
-
-    /* if both type and expr_list is specified, types must be consistent */
-    if (!err && type && expr_list) {
-        eptr = expr_list;
-        while(eptr->count) {
-            err += !type_match(eptr->expr->type, type, 1);
-            eptr = eptr->sublist;
-        }
-        if (err) {
-            print_err("types are inconsistent", 0);
-        }
-    }
-    
-    /* types must be completely specified if def */
-    if (!err && dim_type == DIM_DEF) {
-        if (type) {
-            /* get type from type */
+        /* type must be completely specified if def */
+        if (dim_type == DIM_DEF) {
             if (!type->complete) {
                 print_err("type must be completely specified", 0);
                 err = 1;
             }
-        } else {
-            /* get type from expr_list */
+        }
+    
+        /* variables can't hold functions */
+        if (dim_type == DIM_DEF && type->specifier == TYPE_FUNC) {
+            print_err("variables can't hold functions", 0); 
+            err = 1;
+        }
+        
+        /* 5: parse ass */
+        expr_list = parse_ass();
+        
+        /* if expr_list is specified, check size */
+        if (expr_list && expr_list->count != id_list->count) {
+            print_err("expression list size <> identifiers", 0); 
+            err = 1;       
+        }
+        
+        /* dec and typ cannot have initializers */
+        if ((dim_type == DIM_TYP || dim_type == DIM_DEC) && expr_list) {
+            print_err("dec/typ cannot have initializers", 0); 
+            err = 1;  
+        }
+        
+        /* initializers must be literal */
+        if (!err && expr_list) {
+            eptr = expr_list;
+            i = 0;
+            while(!err && eptr->count) {
+                if (eptr->expr->literal != 1) {
+                    print_err("initializers must be literals", 0);
+                    err = 1;
+                }
+                eptr = eptr->sublist;
+                i++;
+            }
+        }
+        
+        /* check initializer types */
+        if (!err && expr_list) {
             eptr = expr_list;
             while(eptr->count) {
-                if (!eptr->expr->type->complete) {
-                    print_err("expression types must be complete", 0);
+                err += !type_match(eptr->expr->type, type, 1);
+                /* implicit cast needed? */
+                if (!err && eptr->expr->type->specifier != type->specifier) {
+                    eptr->expr = type_cast(eptr->expr, type);
                 }
                 eptr = eptr->sublist;
             }
-            
-        }
-    }
-    
-    /* determine types */
-    if (!err) {
-        types = malloc(id_list->count * sizeof(types[0]));
-        eptr = expr_list;
-        iptr = id_list;
-        for (i = 0; i < id_list->count; i++) {
-            if (type) {
-                iptr->sym->type = types[i] = type;
-                iptr = iptr->sublist;
-            } else {
-                iptr->sym->type = types[i] = eptr->expr->type;
-                eptr = eptr->sublist;
-                iptr = iptr->sublist;
+            if (err) {
+                print_err("types are inconsistent", 0);
             }
         }
-    }
 
-    /* determine storage */
-    if (!err) {
-        storage = malloc(id_list->count * sizeof(storage[0]));
-        for (i = 0; i < id_list->count; i++) {
-            if (get_scope()) {
-                storage[i] = STORE_STACK;
-            } else {
-                /* if type[i] is func, store in code, else: */
-                if (types[i]->specifier == TYPE_FUNC) {
-                    storage[i] = STORE_CODE;
-                } else if (expr_list) {
-                    storage[i] = STORE_DATA;
-                } else {
-                    storage[i] = STORE_BSS;
-                }
-            }
-        }
-    }
-    
-    /* if storage is not stack, all data must be literal */
-    if (!err && expr_list) {
+        /* do action! */
+        iptr = id_list;
         eptr = expr_list;
-        i = 0;
-        while(!err && eptr->count) {
-            if (storage[i] != STORE_STACK &&
-                eptr->expr->literal != 1) {
-                print_err("expression list must be literals", 0);
-                err = 1;
-            }
-            eptr = eptr->sublist;
-            i++;
-        }
-    }
-    
-    /* perform action */
-    i = 0;
-    eptr = expr_list;
-    iptr = id_list;
-    if (!err) {
-        for (i = 0; i < id_list->count; i++) {
+        while(!err && iptr->count) {
             if (dim_type == DIM_DEF) {
                 /* definition */
-                if (storage[i] == STORE_STACK) {
-                    /* stack storage */
-                    iptr->sym->val = get_new_addr(type_size(types[i]));
+                if (get_scope()) {
+                    /* allocate stack space */
+                    iptr->sym->val = get_new_addr(type_size(type));
                     
                     /* initialized? */
                     /* TODO */
-                    
+
                     /* set symbol type */
-                    iptr->sym->type = types[i];
+                    iptr->sym->type = type;
                 } else {
                     /* enter section */
-                    emit_section(storage[i]);
+                    if (expr_list) {
+                        emit_section(STORE_DATA);
+                    } else {
+                        emit_section(STORE_BSS);
+                    }
                     
                     /* local? */
                     if (local) {
@@ -252,43 +204,66 @@ int parse_dim_stmt() {
                     /* print label */
                     emit_label(iptr->sym->name);
                                         
-                    /* set value of symbol */
+                    /* set addr of symbol to its lbl name */
                     iptr->sym->val = iptr->sym->name;
-                    
+        
                     /* if initialized, print value, else print space */
-                    if (types[i]->specifier == TYPE_FUNC) {
-                    
-                    } else if (storage[i] == STORE_DATA) {
-                        emit_data(types[i], eptr->expr);
+                    if (expr_list) {
+                        emit_data(type, eptr->expr);
                     } else {
-                        emit_space(type_size(types[i]));                    
+                        emit_space(type_size(type));                    
                     }
                     
                     /* set symbol type */
-                    iptr->sym->type = types[i];
+                    iptr->sym->type = type;
                 }
             } else if (dim_type == DIM_DEC) {
-                /* just declare */
-                iptr->sym->type = types[i];
-                iptr->sym->val  = iptr->sym->name;
-                iptr->sym->decl = 1;
+                    /* just declare */
+                    iptr->sym->type = type;
+                    iptr->sym->val  = iptr->sym->name;
+                    iptr->sym->decl = 1;
             } else if (dim_type == DIM_TYP) {
-                /* declare as type */
-                iptr->sym->type = alloc_type();
-                iptr->sym->type->specifier = TYPE_TYPEOF;
-                iptr->sym->type->complete = 0;
-                iptr->sym->type->subcount = 1;
-                iptr->sym->type->subtype = types[i];
+                    /* declare as type */
+                    iptr->sym->type = alloc_type();
+                    iptr->sym->type->specifier = TYPE_TYPEOF;
+                    iptr->sym->type->complete = 0;
+                    iptr->sym->type->subcount = 1;
+                    iptr->sym->type->subtype = type;
             }
-            if (eptr)
-                eptr = eptr->sublist;
+            /* next element */
             iptr = iptr->sublist;
+            if (expr_list) {
+                eptr = eptr->sublist;
+            }
         }
-    }
-    
-    /* generate code */
-    if (!get_scope()) {
-        emit_use_m4_macro("def");
+
+    } else {
+
+        /* a function! */
+        emit_section(STORE_CODE);
+
+        /* only one identifier should be named */
+        if (id_list->count > 1) {
+            print_err("at most one identifier must be specified", 0); 
+            err = 1;
+        } else {
+            /* local? */
+            if (local) {
+                emit_local(id_list->sym->name);
+            } else {
+                emit_global(id_list->sym->name);
+            }
+
+            /* print labels */
+            emit_label(id_list->sym->name);
+            
+            /* set addr of symbol to its lbl name */
+            id_list->sym->val = id_list->sym->name;
+        
+            /* parse function header and body */
+            parse_func(id_list->sym);
+        }
+        
     }
     
     /* encounter ; */
@@ -303,7 +278,7 @@ int parse_dim_stmt() {
     return 0;
 }
 
-int parse_dim_list() {
+void parse_dim_list() {
     /* dim_list: dim_stmt dim_list | lambda */
     int done = 0;
     while (!done) {
@@ -313,12 +288,12 @@ int parse_dim_list() {
         /* done? */
         if (strcmp(lex.val, "def") &&
             strcmp(lex.val, "dec") &&
-            strcmp(lex.val, "typ")) {
+            strcmp(lex.val, "typ") &&
+            strcmp(lex.val, "sub")) {
             done = 1;
         } else {
             /* parse dim_stmt */
             parse_dim_stmt();
         }
     }
-    return 0;
 }

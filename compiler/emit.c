@@ -39,19 +39,15 @@ void emit_label(char *lbl) {
 
 void emit_data(type_t *type, expr_t *expr) {
     if (type->specifier == TYPE_BYTE) {
-        fprintf(emit_fd, ".byte %s\n", expr->byte_literal_val);
+        fprintf(emit_fd, ".byte %d\n", expr->byte_literal_val);
     } else if (type->specifier == TYPE_HALF) {
-        fprintf(emit_fd, ".half %s\n", expr->half_literal_val);
+        fprintf(emit_fd, ".half %d\n", expr->half_literal_val);
     } else if (type->specifier == TYPE_WORD) {
-        fprintf(emit_fd, ".word %s\n", expr->word_literal_val);
+        fprintf(emit_fd, ".word %d\n", expr->word_literal_val);
     } else if (type->specifier == TYPE_DOBL) {
-        fprintf(emit_fd, ".quad %s\n", expr->long_literal_val);
+        fprintf(emit_fd, ".quad %lld\n", expr->long_literal_val);
     } else if (type->specifier == TYPE_PTR) {
-        if (expr->addr) {
-            fprintf(emit_fd, ".quad %s\n", expr->addr);
-        } else {
-            fprintf(emit_fd, ".quad %s\n", expr->long_literal_val);
-        }
+        fprintf(emit_fd, ".quad %p\n", (void *) expr->long_literal_val);
     } else if (type->specifier == TYPE_ARRAY) {
         /* composite type */
     } else {
@@ -68,7 +64,7 @@ void emit_space(int space) {
 }
 
 void emit_func_entry() {
-    arch_func_entry(get_stack_size());
+    arch_func_entry();
 }
 
 void emit_func_leave() {
@@ -183,6 +179,10 @@ void emit_load(expr_t *expr, int reg) {
             print_err("<bug> unsupported emit_load() type", 0);
             break;
     }
+}
+
+void emit_loadaddr(expr_t *expr, int reg) {
+    arch_leal(expr->addr, reg);
 }
 
 void emit_store(int reg, expr_t *expr) {
@@ -678,11 +678,15 @@ void emit_bnz(type_t *type, int reg, char *lbl) {
     }
 }
 
+void emit_adjust_stack(int stack_size) {
+    arch_adjust_stack(stack_size);
+}
+
 void emit_loadarg(int arg, int reg) {
     arch_loadarg(arg, reg);
 }
 
-void emit_pusharg(int reg, int arg) {
+void emit_pusharg(int size, int reg, int arg) {
     arch_pusharg(reg, arg);
 }
 

@@ -1,23 +1,28 @@
+#define FFF 12
 
-dec printf as func (fmt as byte[]*, ...);
+dec printf: func (fmt: *[byte], ...) returns byte;
+dec fact  : func (num:   byte);
 
-dec fact as func as word (num as word);
+sub fact(num: quad) returns quad
+    def f as quad;
+begin
+    if num <= 1 then
+        f := 1;
+    else
+        f := num*fact(num-1);
+    endif;
+    return f;
+end;
 
-def fact = func as word (num as word)
-
-    printf("hey! %d\n", num);
-
-    return 0;
-
-endf;
-
-def main = func as word (argc as word, argv as byte[]*[]*)
-  
-    fact(0);
-    fact(1);
-    fact(2);
-  
-    printf("Hello world! %d\n", argc);
-    return 0;
+sub main(argc: quad, argv: *[*[byte]]) returns byte
     
-endf;
+begin
+
+    printf("Hello world! %p\n", &argc);
+    printf("Hello world! %p\n", &argv);
+    printf("Hello world! %p\n", argv);
+    printf("Hello world! %s\n", (*argv)[0]);
+    printf("Hello world! %s\n", (*argv)[1]);
+    printf("Hello world! %c\n", (*(*argv)[2])[0]);
+    return 0;
+end;
