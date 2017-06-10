@@ -100,7 +100,7 @@ type_t *parse_type() {
            print_err("expected ]",0);
            unget_lexeme();
         }
-    } else if (!strcmp(lex.val, "*")) {
+    } else if (!strcmp(lex.val, "@")) {
         /* pointer */
         type->specifier = TYPE_PTR;
         type->complete = 1;

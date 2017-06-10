@@ -27,6 +27,173 @@ void do_assign(expr_t *dest, expr_t *src) {
     }
 }
 
+expr_t *do_unary(expr_t *expr, char *op, int post) {
+    expr_t *ret, *expr0, *expr1, *tmp;
+    int reg = emit_get_reg(REG_ACC, 0);
+    char *lbl1, *lbl2;
+    /* literal 0 */
+    expr0 = alloc_expr();
+    expr0->literal = 1;
+    expr0->type->specifier = TYPE_WORD;
+    expr0->word_literal_val = 0;
+    /* literal 1 */
+    expr1 = alloc_expr();
+    expr1->literal = 1;
+    expr1->type->specifier = TYPE_WORD;
+    expr1->word_literal_val = 1;
+    /* perform operation */
+    if (!strcmp(op, "++")) {
+        if (!post) {
+            /* pre-increment */
+            ret = do_binary(expr, "+", expr1);
+            /* perform assignment */
+            do_assign(expr, ret);
+        } else {
+            /* post-increment */
+            ret = alloc_expr();
+            ret->type = expr->type;
+            ret->addr = get_new_addr(type_size(expr->type));
+            ret->lvalue = 1;
+            /* copy expr into ret */
+            do_assign(ret, expr);
+            /* post increment */
+            tmp = do_binary(expr, "+", expr1);
+            /* perform assignment */
+            do_assign(expr, tmp);            
+            /* ret is no longer an lvalue */
+            ret->lvalue = 0;
+        }
+    } else if (!strcmp(op, "--")) {
+        if (!post) {
+            /* pre-decrement */
+            ret = do_binary(expr, "-", expr1);
+            /* perform assignment */
+            do_assign(expr, ret);
+        } else {
+            /* post-decrement */
+            ret = alloc_expr();
+            ret->type = expr->type;
+            ret->addr = get_new_addr(type_size(expr->type));
+            ret->lvalue = 1;
+            /* copy expr into ret */
+            do_assign(ret, expr);
+            /* post increment */
+            tmp = do_binary(expr, "-", expr1);
+            /* perform assignment */
+            do_assign(expr, tmp); 
+            /* ret is no longer an lvalue */
+            ret->lvalue = 0;
+        }
+    } else if (!strcmp(op, "+")) {
+        /* perform addition to zero */
+        ret = do_binary(expr0, "+", expr);
+    } else if (!strcmp(op, "-")) {
+        /* perform subtraction from zero */
+        ret = do_binary(expr0, "-", expr);
+    } else if (!strcmp(op, "!")) {
+        /* allocate a temporary holder */
+        tmp = alloc_expr();
+        tmp->type = expr->type;
+        /* check type */
+        if (expr->type->specifier >= TYPE_BYTE && 
+            expr->type->specifier <= TYPE_DOBL) {
+            if (expr->literal) {
+                /* literal */
+                tmp->literal = 1;
+                literal_do_unary(tmp, op, expr);
+            } else {
+                /* allocate memory and label */
+                tmp->addr = get_new_addr(type_size(tmp->type));
+                lbl1 = get_new_label();
+                lbl2 = get_new_label();
+                /* expr = zero? */
+                emit_load(expr, reg);
+                emit_bze(expr->type, reg, lbl1);
+                /* set acc to 0 */
+                emit_load(expr0, reg);
+                emit_jmp(lbl2);
+                /* set acc to 1 */
+                emit_label(lbl1);
+                emit_load(expr1, reg);
+                /* store acc into tmp */
+                emit_label(lbl2);
+                emit_store(reg, tmp);
+            }
+        } else {
+            print_err("unsupported operation for the given type", 0);        
+        }
+        /* return tmp */
+        ret = tmp;
+    } else if (!strcmp(op, "~")) {
+        /* allocate a temporary holder */
+        tmp = alloc_expr();
+        tmp->type = expr->type;
+        /* check type */
+        if (expr->type->specifier >= TYPE_BYTE && 
+            expr->type->specifier <= TYPE_DOBL) {
+            if (expr->literal) {
+                /* literal */
+                tmp->literal = 1;
+                literal_do_unary(tmp, op, expr);
+            } else {
+                tmp->addr = get_new_addr(type_size(tmp->type));
+                emit_load(expr, reg);
+                emit_not(expr->type, reg);
+                emit_store(reg, tmp);
+            }
+        } else {
+            print_err("unsupported operation for the given type", 0);        
+        }
+        /* return tmp */
+        ret = tmp;
+    } else if (!strcmp(op, "&")) {
+        /* allocate temporary variable */
+        tmp = alloc_expr();
+        tmp->type->specifier = TYPE_PTR;
+        tmp->type->complete = 1;
+        tmp->type->subtype = expr->type;
+        /* expr must be an lvalue */
+        if (expr->lvalue) {
+            /* p = &var */
+            if (!expr->indir) {
+                tmp->addr = get_new_addr(type_size(expr->type));
+                emit_loadaddr(expr, reg);
+                emit_store(reg, tmp);
+            } else {
+                tmp->addr = expr->addr;
+            }
+        } else {
+            print_err("can't reference a non lvalue expressions", 0);
+        }
+        /* return tmp */
+        ret = tmp;
+    } else if (!strcmp(op, "@")) {
+        /* dereference a pointer */
+        if (expr->type->specifier == TYPE_PTR) {
+            /* allocate temporary variable */
+            tmp = alloc_expr();
+            tmp->type = expr->type;
+            tmp->addr = get_new_addr(type_size(expr->type));
+            /* store pointer value in tmp's addr */
+            emit_load(expr, reg);
+            emit_store(reg, tmp);
+            /* set tmp type to that of pointed expr and mark indirect */
+            tmp->type = tmp->type->subtype;
+            tmp->indir  = 1;
+            tmp->lvalue = expr->lvalue;
+            /* return res */
+            ret = tmp;
+        } else {
+            print_err("can't dereference non lvalue expressions", 0);
+        }
+    } else {
+        print_err("<bug> do_unary(): invalid op %s", op);
+        ret = expr;
+    } 
+    /* done */
+    return ret;
+}
+
 expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
     expr_t *expr, *expr0, *expr1;
     expr_t *op_ptr, *op_incr, *subtype_size;
@@ -35,13 +202,68 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
     char *lbl1, *lbl2, *lbl3;
     int reg1 = emit_get_reg(REG_ACC, 0);
     int reg2 = emit_get_reg(REG_ACC, 1);
-    /* allocate container for the result */
+    /* container for the result */
     expr = alloc_expr();
-    /* different cases according to operand types */
-    if (op1->type->specifier >= TYPE_BYTE && 
-        op1->type->specifier <= TYPE_DOBL &&
-        op2->type->specifier >= TYPE_BYTE &&
-        op2->type->specifier <= TYPE_DOBL) {
+    /* literal 0 */
+    expr0 = alloc_expr();
+    expr0->literal = 1;
+    expr0->type->specifier = TYPE_WORD;
+    expr0->word_literal_val = 0;
+    /* literal 1 */
+    expr1 = alloc_expr();
+    expr1->literal = 1;
+    expr1->type->specifier = TYPE_WORD;
+    expr1->word_literal_val = 1;
+    /* perform action */
+    if (!strcmp(op, "[")) {
+    
+        /* array subscript */
+        if (op1->type->specifier == TYPE_ARRAY) {
+            /* subscript must be integer */
+            if (op2->type->specifier >= TYPE_BYTE &&
+                op2->type->specifier <= TYPE_DOBL) {
+                /* load the address of the first element in the 
+                 * array to a pointer to array type
+                 * then perform pointer arithmetic
+                 * ex: to evaluate arr[i]
+                 *        let p pointer = &arr[0]
+                 *            p += i
+                 *            return *p as indirect lvalue var 
+                 */
+                expr = alloc_expr();
+                expr->type->specifier = TYPE_PTR;
+                expr->type->complete = 1;
+                expr->type->subtype = op1->type->subtype;
+                /* p = &arr[0] */
+                if (!op1->indir) {
+                    expr->addr = get_new_addr(type_size(expr->type));
+                    emit_loadaddr(op1, reg1);
+                    emit_store(reg1, expr);
+                } else {
+                    expr->addr = op1->addr;
+                }
+                /* p += i */
+                expr = do_binary(expr, "+", op2);
+                /* now expr holds the destined address */
+                expr->type = expr->type->subtype;
+                expr->lvalue = 1;
+                expr->indir = 1;              
+            } else {
+                print_err("array subscript must be integer", 0);
+                expr = op1;
+                expr->type = op1->type->subtype;
+            }
+        } else {
+            /* must be applied to an array type */
+            print_err("[] can't be applied to a non-array type", 0);
+            expr = op1;
+        }
+        
+    } else if (op1->type->specifier >= TYPE_BYTE && 
+               op1->type->specifier <= TYPE_DOBL &&
+               op2->type->specifier >= TYPE_BYTE &&
+               op2->type->specifier <= TYPE_DOBL) {
+               
         /* two operands are integral */
         /* final type is the largest of them */
         if (op1->type->specifier > op2->type->specifier) {
@@ -53,27 +275,20 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
         } else {
             expr->type = op1->type; /* any type of them */
         }
+        
         /* for comparison operations, resultant type is word */
         if (!strcmp(op, ">") || !strcmp(op, ">=") ||
             !strcmp(op, "<") || !strcmp(op, "<=") ||
-            !strcmp(op, "=") || !strcmp(op, "!=")) {
+            !strcmp(op, "==") || !strcmp(op, "!=")) {
             /* result type is word */
             expr->type = alloc_type();
             expr->type->specifier = TYPE_WORD;
-            /* allocate expressions for 0 and 1 literals */
-            expr0 = alloc_expr();
-            expr1 = alloc_expr();
-            expr0->literal = 1;
-            expr1->literal = 1;
-            expr0->type->specifier = TYPE_WORD;
-            expr1->type->specifier = TYPE_WORD;
-            expr0->word_literal_val = 0;
-            expr1->word_literal_val = 1;
             /* allocate labels */
             lbl1 = get_new_label();
             lbl2 = get_new_label();
             lbl3 = get_new_label();
         }
+        
         /* do operation */
         if (op1->literal && op2->literal) {
             /* literals */
@@ -97,7 +312,7 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 emit_div(op1->type, reg2, reg1);
             } else if (!strcmp(op, "%")) {
                 emit_mod(op1->type, reg2, reg1);
-            } else if (!strcmp(op, "=")) {
+            } else if (!strcmp(op, "==")) {
                 emit_beq(op1->type, reg1, reg2, lbl2);
                 emit_label(lbl1);
                 emit_load(expr0, reg1);
@@ -156,10 +371,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             } else if (!strcmp(op, "<<")) {
                 emit_sll(op1->type, reg2, reg1);
             } else {
-                print_err("<bug> do_binary(): invalid op", 0);
+                print_err("<bug> do_binary(): invalid op %s", op);
             }  
             emit_store(reg1, expr);
         }
+        
     } else if (((op1->type->specifier == TYPE_PTR  &&
                  op2->type->specifier >= TYPE_BYTE &&
                  op2->type->specifier <= TYPE_DOBL) ||
@@ -250,7 +466,7 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             !strcmp(op, "<=") ||
             !strcmp(op, ">") ||
             !strcmp(op, ">=") ||
-            !strcmp(op, "=") ||
+            !strcmp(op, "==") ||
             !strcmp(op, "!=")) {
             
             /* do the operation normally */
@@ -269,9 +485,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
         }
 
     } else {
+        
         /* unsupported types for operation */
         print_err("unsupported types for '%s'", op);
+        
     }
-    
+    /* done */
     return expr;
 }

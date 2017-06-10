@@ -384,6 +384,27 @@ void emit_mod(type_t *type, int src_reg, int dest_reg) {
     }
 }
 
+void emit_not(type_t *type, int reg) {
+    switch(type->specifier) {
+        case TYPE_BYTE:
+            arch_notb(reg);
+            break;
+        case TYPE_HALF:
+            arch_noth(reg);
+            break;
+        case TYPE_WORD:
+            arch_notw(reg);
+            break;
+        case TYPE_DOBL:
+        case TYPE_PTR:
+            arch_notl(reg);
+            break;
+        default:
+            print_err("<bug> arch_not(): invalid type", 0);
+            break;
+    }
+}
+
 void emit_and(type_t *type, int src_reg, int dest_reg) {
     switch(type->specifier) {
         case TYPE_BYTE:

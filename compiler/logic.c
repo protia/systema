@@ -4,223 +4,229 @@
 #include "common.h"
 
 expr_t *parse_logic_and() {
-    expr_t *expr, *expr1 /*, *expr2, *expr3*/;
-    //char *lbl1, *lbl2;
-    //unsigned long long val1, val2;
-    //int err = 0, gen_code = 0;
-    /* logic_and: bitwise_or ('&&' logic_and | lambda) */
-    expr1 = parse_bitwise_or();
+    expr_t *expr, *op1, *op2, *res;
+    expr_t *expr0, *expr1;
+    char *lbl1, *lbl2;
+    int val1, val2;
+    int err = 0, gen_code = 0;
+    int reg = emit_get_reg(REG_ACC, 0);
+    /* logic_and: bitwise_or ('and' logic_and | lambda) */
+    op1 = parse_bitwise_or();
+    /* literal 0 */
+    expr0 = alloc_expr();
+    expr0->literal = 1;
+    expr0->type->specifier = TYPE_WORD;
+    expr0->word_literal_val = 0;
+    /* literal 1 */
+    expr1 = alloc_expr();
+    expr1->literal = 1;
+    expr1->type->specifier = TYPE_WORD;
+    expr1->word_literal_val = 1;
     /* lookahead */
     get_lexeme();
-    /* &&? */
-    while (!strcmp(lex.val, "&&")) {
-#if 0
+    /* and? */
+    while (!strcmp(lex.val, "and")) {
         /* generate labels */
         lbl1 = get_new_label();
         lbl2 = get_new_label();
         /* container for result */
-        expr3 = alloc_expr();
-        expr3->type->specifier = TYPE_WORD;
-        expr3->type->complete = 1;
+        res = alloc_expr();
+        res->type->specifier = TYPE_WORD;
+        res->type->complete = 1;
         /* check type 1 */
-        if (expr1->type->specifier != TYPE_BYTE &&
-            expr1->type->specifier != TYPE_HALF &&
-            expr1->type->specifier != TYPE_WORD &&
-            expr1->type->specifier != TYPE_DOBL &&
-            expr1->type->specifier != TYPE_PTR) {
-            print_err("unsupported types for &&", 0);
+        if (op1->type->specifier != TYPE_BYTE &&
+            op1->type->specifier != TYPE_HALF &&
+            op1->type->specifier != TYPE_WORD &&
+            op1->type->specifier != TYPE_DOBL &&
+            op1->type->specifier != TYPE_PTR) {
+            print_err("unsupported types for and", 0);
             err = 1;
         } else {
-            if (expr1->literal) {
-                /*TODO*/
-                /*val1 = eval_int(expr1->val);*/
+            if (op1->literal) {
+                /* prepare val1 */
+                op1 = type_cast(op1, res->type);
+                val1 = op1->word_literal_val;
             } else {
                 /* generate code */
-#if 0
-                emit_branch_if_zero(expr1->type, expr1->addr, lbl1);
-#endif
+                emit_load(op1, reg);
+                emit_bze(op1->type, reg, lbl1);
             }
         }
         /* parse second expr */
-        expr2 = parse_bitwise_or();
+        op2 = parse_bitwise_or();
         /* check type 2 */
-        if (expr2->type->specifier != TYPE_BYTE &&
-            expr2->type->specifier != TYPE_HALF &&
-            expr2->type->specifier != TYPE_WORD &&
-            expr2->type->specifier != TYPE_DOBL &&
-            expr2->type->specifier != TYPE_PTR) {
-            print_err("unsupported types for &&", 0);
+        if (op2->type->specifier != TYPE_BYTE &&
+            op2->type->specifier != TYPE_HALF &&
+            op2->type->specifier != TYPE_WORD &&
+            op2->type->specifier != TYPE_DOBL &&
+            op2->type->specifier != TYPE_PTR) {
+            print_err("unsupported types for and", 0);
             err = 1;
         } else if (!err) {
-            if (expr2->literal) {
-                /*TODO*/
-                /*val2 = eval_int(expr1->val);*/
-                if (expr1->literal) {
+            if (op2->literal) {
+                /* prepare val2 */
+                op2 = type_cast(op2, res->type);
+                val2  = op2->word_literal_val;
+                if (op1->literal) {
                     /* both expressions are literals */
-                    expr3->literal = 1;
-                    if (val1 && val2) {
-                        //expr3->val = "1";
-                    } else {
-                        //expr3->val = "0";
-                    }
+                    res->literal = 1;
+                    res->word_literal_val = val1 && val2;
+                    gen_code = 0;
                 } else {
-                    /* expr1 is not literal but expr2 is */
-                    if (val2 == 1) {
-                        expr3 = expr1;
-                    } else {
-                        /* always false */
-                        //expr->val = "0";
-                        expr->literal = 1;
-                    }
+                    /* op1 is not literal but op2 is */
+                    gen_code = 1;
                 }
             } else {
-                if (expr1->literal) {
-                    /* expr1 is literal but expr2 is not */
-                    if (val1) {
+                if (op1->literal) {
+                    /* op1 is literal but op2 is not */
+                    if (val1 == 1) {
                         gen_code = 1;
                     } else {
                         /* always false */
-                        expr3->literal = 1;
-                        //expr3->val = "0";
+                        res->literal = 1;
+                        res->word_literal_val = 0;
+                        gen_code = 0;
                     }
                 } else {
-                    /* expr1 is not literal and expr2 is not */
+                    /* op1 is not literal and op2 is not */
                     gen_code = 1;
                 }
             }
             /* generate code */
             if (gen_code) {
-#if 0
-                expr3->addr = get_new_addr(expr3->type);
-                emit_branch_if_zero(expr2->type, expr2->addr, lbl1);
-                emit_set_literal(expr3->type, 1, expr3->addr);
+                res->addr = get_new_addr(type_size(res->type));
+                emit_load(op2, reg);
+                emit_bze(op2->type, reg, lbl1);
+                emit_load(expr1, reg);
                 emit_jmp(lbl2);
                 emit_label(lbl1);
-                emit_set_literal(expr3->type, 0, expr3->addr);
+                emit_load(expr0, reg);
                 emit_label(lbl2);
-#endif
+                emit_store(reg, res);
             }
         }
-        /* update expr1 */
-        expr1 = expr3;
+        /* update op1 */
+        op1 = res;
         /* move to next */
         get_lexeme();
-#endif
     }
     /* no more */
     unget_lexeme();
-    expr = expr1;
+    expr = op1;
     /* done */
     return expr;
 }
 
 expr_t *parse_logic_or() {
-    expr_t *expr, *expr1/*, *expr2, *expr3*/;
-    //char *lbl1, *lbl2;
-    //unsigned long long val1, val2;
-    //int err = 0, gen_code = 0;
-    /* logic_or: logic_and ('||' logic_or | lambda) */
-    expr1 = parse_logic_and();
+    expr_t *expr, *op1, *op2, *res;
+    expr_t *expr0, *expr1;
+    char *lbl1, *lbl2;
+    int val1, val2;
+    int err = 0, gen_code = 0;
+    int reg = emit_get_reg(REG_ACC, 0);
+    /* logic_or: logic_and ('or' logic_or | lambda) */
+    op1 = parse_logic_and();
+    /* literal 0 */
+    expr0 = alloc_expr();
+    expr0->literal = 1;
+    expr0->type->specifier = TYPE_WORD;
+    expr0->word_literal_val = 0;
+    /* literal 1 */
+    expr1 = alloc_expr();
+    expr1->literal = 1;
+    expr1->type->specifier = TYPE_WORD;
+    expr1->word_literal_val = 1;
     /* lookahead */
     get_lexeme();
-    /* ||? */
-    while (!strcmp(lex.val, "||")) {
-#if 0
+    /* or? */
+    while (!strcmp(lex.val, "or")) {
         /* generate labels */
         lbl1 = get_new_label();
         lbl2 = get_new_label();
         /* container for result */
-        expr3 = alloc_expr();
-        expr3->type->specifier = TYPE_WORD;
-        expr3->type->complete = 1;
+        res = alloc_expr();
+        res->type->specifier = TYPE_WORD;
+        res->type->complete = 1;
         /* check type 1 */
-        if (expr1->type->specifier != TYPE_BYTE &&
-            expr1->type->specifier != TYPE_HALF &&
-            expr1->type->specifier != TYPE_WORD &&
-            expr1->type->specifier != TYPE_DOBL &&
-            expr1->type->specifier != TYPE_PTR) {
-            print_err("unsupported types for ||", 0);
+        if (op1->type->specifier != TYPE_BYTE &&
+            op1->type->specifier != TYPE_HALF &&
+            op1->type->specifier != TYPE_WORD &&
+            op1->type->specifier != TYPE_DOBL &&
+            op1->type->specifier != TYPE_PTR) {
+            print_err("unsupported types for and", 0);
             err = 1;
         } else {
-            if (expr1->literal) {
-                /*TODO*/
-                /*val1 = eval_int(expr1->val);*/
+            if (op1->literal) {
+                /* prepare val1 */
+                op1 = type_cast(op1, res->type);
+                val1 = op1->word_literal_val;
             } else {
                 /* generate code */
-#if 0
-                emit_branch_if_nonzero(expr1->type, expr1->addr, lbl1);
-#endif
+                emit_load(op1, reg);
+                emit_bnz(op1->type, reg, lbl1);
             }
         }
         /* parse second expr */
-        expr2 = parse_logic_and();
+        op2 = parse_bitwise_or();
         /* check type 2 */
-        if (expr2->type->specifier != TYPE_BYTE &&
-            expr2->type->specifier != TYPE_HALF &&
-            expr2->type->specifier != TYPE_WORD &&
-            expr2->type->specifier != TYPE_DOBL &&
-            expr2->type->specifier != TYPE_PTR) {
-            print_err("unsupported types for ||", 0);
+        if (op2->type->specifier != TYPE_BYTE &&
+            op2->type->specifier != TYPE_HALF &&
+            op2->type->specifier != TYPE_WORD &&
+            op2->type->specifier != TYPE_DOBL &&
+            op2->type->specifier != TYPE_PTR) {
+            print_err("unsupported types for and", 0);
             err = 1;
         } else if (!err) {
-            if (expr2->literal) {
-                /*TODO*/
-                /*val2 = eval_int(expr1->val);*/
-                if (expr1->literal) {
+            if (op2->literal) {
+                /* prepare val2 */
+                op2 = type_cast(op2, res->type);
+                val2  = op2->word_literal_val;
+                if (op1->literal) {
                     /* both expressions are literals */
-                    expr3->literal = 1;
-                    if (val1 || val2) {
-                        //expr3->val = "1";
-                    } else {
-                        //expr3->val = "0";
-                    }
+                    res->literal = 1;
+                    res->word_literal_val = val1 || val2;
+                    gen_code = 0;
                 } else {
-                    /* expr1 is not literal but expr2 is */
-                    if (val2 == 0) {
-                        expr3 = expr1;
-                    } else {
-                        /* always true */
-                        //expr->val = "1";
-                        expr->literal = 1;
-                    }
+                    /* op1 is not literal but op2 is */
+                    gen_code = 1;
                 }
             } else {
-                if (expr1->literal) {
-                    /* expr1 is literal but expr2 is not */
-                    if (!val1) {
+                if (op1->literal) {
+                    /* op1 is literal but op2 is not */
+                    if (val1 == 0) {
                         gen_code = 1;
                     } else {
                         /* always true */
-                        expr3->literal = 1;
-                        //expr3->val = "1";
+                        res->literal = 1;
+                        res->word_literal_val = 1;
+                        gen_code = 0;
                     }
                 } else {
-                    /* expr1 is not literal and expr2 is not */
+                    /* op1 is not literal and op2 is not */
                     gen_code = 1;
                 }
             }
             /* generate code */
             if (gen_code) {
-#if 0
-                expr3->addr = get_new_addr(expr3->type);
-                emit_branch_if_nonzero(expr2->type, expr2->addr, lbl1);
-                emit_set_literal(expr3->type, 0, expr3->addr);
+                res->addr = get_new_addr(type_size(res->type));
+                emit_load(op2, reg);
+                emit_bnz(op2->type, reg, lbl1);
+                emit_load(expr0, reg);
                 emit_jmp(lbl2);
                 emit_label(lbl1);
-                emit_set_literal(expr3->type, 1, expr3->addr);
+                emit_load(expr1, reg);
                 emit_label(lbl2);
-#endif
+                emit_store(reg, res);
             }
         }
-        /* update expr1 */
-        expr1 = expr3;
+        /* update op1 */
+        op1 = res;
         /* move to next */
         get_lexeme();
-#endif
     }
     /* no more */       
     unget_lexeme();
-    expr = expr1;
+    expr = op1;
     /* done */
     return expr;
 }

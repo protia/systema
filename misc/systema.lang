@@ -201,26 +201,34 @@
       <keyword>returns</keyword>
       <keyword>begin</keyword>
       <keyword>if</keyword>
+      <keyword>unsigned</keyword>
       <keyword>and</keyword>
       <keyword>or</keyword>
       <keyword>between</keyword>
+      <keyword>then</keyword>
       <keyword>elsif</keyword>
       <keyword>else</keyword>
       <keyword>endif</keyword>
       <keyword>case</keyword>
-      <keyword>of</keyword>
+      <keyword>when</keyword>
       <keyword>others</keyword>
       <keyword>esac</keyword>
       <keyword>for</keyword>
+      <keyword>from</keyword>
+      <keyword>to</keyword>
+      <keyword>step</keyword>
       <keyword>do</keyword>
-      <keyword>loop</keyword>
+      <keyword>next</keyword>
       <keyword>while</keyword>
+      <keyword>loop</keyword>
       <keyword>return</keyword>
       <keyword>end</keyword>
+      <keyword>fuck</keyword>
     </context>
 
     <context id="operators" style-ref="operator">
-      <keyword>sizeof</keyword>
+      <!--<keyword>sizeof</keyword>-->
+      <match>@|\+\+|\-\-|&amp;</match>
     </context>
 
     <context id="types" style-ref="type">
@@ -229,6 +237,7 @@
       <keyword>twin</keyword>
       <keyword>quad</keyword>
       <keyword>octt</keyword>
+      <keyword>register</keyword>
       <keyword>func</keyword>
       <keyword>text</keyword>
       <keyword>record</keyword>

@@ -1,2 +1,23 @@
 Suggested TODO list:
 ---------------------
+
+
+-> unsigned(expr)
+-> pointer relative arithmetic is unsigned
+
+-> register
+-> machine instructions
+-> assembly language comments
+-> sycp, sycc, syca, sycl
+
+-> and & or operations
+
+-> between clause
+
+-> for loop
+-> while loop
+-> case when
+
+-> text processing
+
+-> records

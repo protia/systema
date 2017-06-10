@@ -9,6 +9,22 @@
  * text literal
  */
 
+
+#define RESB   expr->byte_literal_val
+#define RESH   expr->half_literal_val
+#define RESW   expr->word_literal_val
+#define RESD   expr->long_literal_val
+
+#define OP1B   op1->byte_literal_val
+#define OP1H   op1->half_literal_val
+#define OP1W   op1->word_literal_val
+#define OP1D   op1->long_literal_val
+
+#define OP2B   op2->byte_literal_val
+#define OP2H   op2->half_literal_val
+#define OP2W   op2->word_literal_val
+#define OP2D   op2->long_literal_val
+
 void literal_type_cast(expr_t *before, expr_t *after) {
     /* get types */
     int from = before->type->specifier;
@@ -94,26 +110,34 @@ void literal_type_cast(expr_t *before, expr_t *after) {
     }
 }
 
+void literal_do_unary(expr_t *expr, char *op, expr_t *op1) {
+    /* expects expr to be already initialized with the target type */
+    if (!strcmp(op, "!")) {
+        switch(op1->type->specifier) {
+            case TYPE_BYTE: RESB = !OP1B; break;
+            case TYPE_HALF: RESH = !OP1H; break;
+            case TYPE_WORD: RESW = !OP1W; break;
+            case TYPE_DOBL: RESD = !OP1D; break;
+            case TYPE_PTR:  RESD = !OP1D; break;
+        }
+    } else if (!strcmp(op, "~")) {
+        switch(op1->type->specifier) {
+            case TYPE_BYTE: RESB = ~OP1B; break;
+            case TYPE_HALF: RESH = ~OP1H; break;
+            case TYPE_WORD: RESW = ~OP1W; break;
+            case TYPE_DOBL: RESD = ~OP1D; break;
+            case TYPE_PTR:  RESD = ~OP1D; break;
+        }
+    } else {
+        print_err("<bug>: literal_do_unary() invalid op\n", 0);
+    }
+}
+
 void literal_do_binary(expr_t *expr, expr_t *op1, char *op, expr_t *op2) {
 
-    /* expects op1 and op2 to be of the same type [or ptr with long],
+    /* expects op1 and op2 to be of the same type,
      * and expr to be already initialized with the target type
      */
-
-#define RESB   expr->byte_literal_val
-#define RESH   expr->half_literal_val
-#define RESW   expr->word_literal_val
-#define RESD   expr->long_literal_val
-
-#define OP1B   op1->byte_literal_val
-#define OP1H   op1->half_literal_val
-#define OP1W   op1->word_literal_val
-#define OP1D   op1->long_literal_val
-
-#define OP2B   op2->byte_literal_val
-#define OP2H   op2->half_literal_val
-#define OP2W   op2->word_literal_val
-#define OP2D   op2->long_literal_val
 
     if (!strcmp(op, "+")) {
         switch(op1->type->specifier) {

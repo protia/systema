@@ -434,6 +434,26 @@ void arch_modl(int src_reg, int dest_reg) {
     fprintf(emit_fd, "    popq   %%rdx\n");
 }
 
+void arch_notb(int reg) {
+    char *reg_name = arch_get_reg_name(reg,  1);
+    fprintf(emit_fd, "    notb   %s\n", reg_name);
+}
+
+void arch_noth(int reg) {
+    char *reg_name = arch_get_reg_name(reg,  2);
+    fprintf(emit_fd, "    notw   %s\n", reg_name);
+}
+
+void arch_notw(int reg) {
+    char *reg_name = arch_get_reg_name(reg,  4);
+    fprintf(emit_fd, "    notl   %s\n", reg_name);
+}
+
+void arch_notl(int reg) {
+    char *reg_name = arch_get_reg_name(reg,  8);
+    fprintf(emit_fd, "    notq   %s\n", reg_name);
+}
+
 void arch_andb(int src_reg, int dest_reg) {
     char *src_name  = arch_get_reg_name(src_reg,  1);
     char *dest_name = arch_get_reg_name(dest_reg, 1);

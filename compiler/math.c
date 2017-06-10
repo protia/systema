@@ -3,6 +3,91 @@
 
 #include "common.h"
 
+expr_t *parse_unary_post() {
+    expr_t *expr, *expr1;
+    type_t *type;
+    int done = 0;
+    char op[10];
+    /* unary_post: factor post_op* */
+    expr = parse_factor();
+    /* loop over post operators */
+    get_lexeme();
+    done = 0;
+    while(!done) {
+        if (!strcmp(lex.val, "++") ||
+            !strcmp(lex.val, "--") ||
+            !strcmp(lex.val, "@")) {
+            /* copy operator */
+            strcpy(op, lex.val);
+            /* perform operation */
+            expr = do_unary(expr, op, 1);
+        } else if (!strcmp(lex.val, "(")) {
+            /* function call */
+            if (expr->type->specifier != TYPE_FUNC) {
+                print_err("error: call to a non-function", 0);
+                done = 1;
+            } else {
+                unget_lexeme();
+                expr = parse_func_call(expr);
+            }
+        } else if (!strcmp(lex.val, "[")) {
+            /* read array index */
+            expr1 = parse_expr();
+            /* read ] */
+            get_lexeme();
+            if (strcmp(lex.val, "]")) {
+                unget_lexeme();
+                print_err("expected ]", 0);
+            }
+            /* resolve array subscript */
+            expr = do_binary(expr, "[", expr1);
+        } else if (!strcmp(lex.val, ".")) {
+            /* record member */
+        } else if (!strcmp(lex.val, "as")) {
+            /* type casting! */
+            type = parse_type();
+            expr = type_cast(expr, type);            
+        } else {
+            /* no more */
+            unget_lexeme();
+            done = 1;
+        }
+        /* next thing */
+        if (!done) {
+            get_lexeme();
+        }
+    }
+    /* done */
+    return expr;
+}
+
+expr_t *parse_unary_pre() {
+    expr_t *expr;
+    char op[10];
+    /* unary_pre: (unary_op unary_pre | unary_post) */
+    get_lexeme();
+    if (!strcmp(lex.val, "++") ||
+        !strcmp(lex.val, "--") ||
+        !strcmp(lex.val, "+")  ||
+        !strcmp(lex.val, "-")  ||
+        !strcmp(lex.val, "!")  ||
+        !strcmp(lex.val, "~")  ||
+        !strcmp(lex.val, "&")) {
+        /* copy operator */
+        strcpy(op, lex.val);
+        /* parse next unary_pre expression */
+        expr = parse_unary_pre();
+        /* perform operation */
+        expr = do_unary(expr, op, 0);
+    } else {
+        /* no unary operator */
+        unget_lexeme();
+        expr = parse_unary_post();
+    }
+    /* done */
+    return expr;
+}
+
 expr_t *parse_muldiv() {
     expr_t *expr, *expr1, *expr2;
     char op[10];
@@ -116,7 +201,7 @@ expr_t *parse_equality() {
     /* lookahead */
     get_lexeme();
     /* == or != ? */
-    while (!strcmp(lex.val, "=") || !strcmp(lex.val, "!=")) {
+    while (!strcmp(lex.val, "==") || !strcmp(lex.val, "!=")) {
         /* equality */
         strcpy(op, lex.val);
         /* parse second operand */

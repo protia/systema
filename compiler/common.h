@@ -182,6 +182,10 @@ void arch_modb(int src_reg, int dest_reg);
 void arch_modh(int src_reg, int dest_reg);
 void arch_modw(int src_reg, int dest_reg);
 void arch_modl(int src_reg, int dest_reg);
+void arch_notb(int src_reg);
+void arch_noth(int src_reg);
+void arch_notw(int src_reg);
+void arch_notl(int src_reg);
 void arch_andb(int src_reg, int dest_reg);
 void arch_andh(int src_reg, int dest_reg);
 void arch_andw(int src_reg, int dest_reg);
@@ -296,6 +300,7 @@ void emit_sub(type_t *type, int src_reg, int dest_reg);
 void emit_mul(type_t *type, int src_reg, int dest_reg);
 void emit_div(type_t *type, int src_reg, int dest_reg);
 void emit_mod(type_t *type, int src_reg, int dest_reg);
+void emit_not(type_t *type, int src_reg);
 void emit_and(type_t *type, int src_reg, int dest_reg);
 void emit_eor(type_t *type, int src_reg, int dest_reg);
 void emit_xor(type_t *type, int src_reg, int dest_reg);
@@ -319,11 +324,6 @@ void emit_def_m4_macro(char *macro_name);
 void emit_fed_m4_macro();
 void emit_use_m4_macro(char *macro_name);
 
-/* literal.c */
-void literal_type_cast(expr_t *before, expr_t *after);
-void literal_do_binary(expr_t *expr, expr_t *op1, char *op, expr_t *op2);
-int eval_literal_int(char *str);
-
 /* symtab.c */
 sym_t *get_sym(char *name);
 sym_t *add_sym(char *name, type_t *type);
@@ -338,14 +338,21 @@ int type_match(type_t *type1, type_t *type2, int strict);
 /* cast.c */
 expr_t *type_cast(expr_t *before, type_t *new_type);
 
+/* literal.c */
+void literal_type_cast(expr_t *before, expr_t *after);
+void literal_do_unary(expr_t *res, char *op, expr_t *op1);
+void literal_do_binary(expr_t *expr, expr_t *op1, char *op, expr_t *op2);
+int eval_literal_int(char *str);
+
+/* do.c */
+void do_assign(expr_t *dest, expr_t *src);
+expr_t *do_unary(expr_t *expr, char *op, int post);
+expr_t *do_binary(expr_t *op1, char *op, expr_t *op2);
+
 /*func.c */
 expr_t *parse_func_call(expr_t *func);
 type_t *parse_func_header();
 void parse_func(sym_t *sym);
-
-/* op.c */
-void do_assign(expr_t *dest, expr_t *src);
-expr_t *do_binary(expr_t *op1, char *op, expr_t *op2);
 
 /* type.c */
 type_t *parse_type();
@@ -356,10 +363,7 @@ void parse_stmt_list();
 /* factor.c */
 expr_t *parse_factor();
 
-/* unary.c */
-expr_t *parse_unary_pre();
-
-/* binary.c */
+/* math.c */
 expr_t *parse_bitwise_or();
 
 /* logic.c */
