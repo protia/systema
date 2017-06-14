@@ -9,8 +9,8 @@ sub fact(num: four) returns four
 begin
     if num == 1 then
         f := 1;
-    else
-        f := num*fact(num-1);
+    elsif num == 0 then
+        f := 1;
     endif;
     return f;
 end;
@@ -20,6 +20,8 @@ sub main(argc: four, argv: @[@[byte]]) returns byte
     def y  as eigh := 1;
     def ax as twin in register("%di") := 3;
 begin
+    printf("Hello world! %x\n", unsigned(x>>2));
+    printf("Hello world! %d\n", unsigned(x>>2));
     printf("Hello world! %x\n", unsigned(x>>2));
     return 0;
 end;

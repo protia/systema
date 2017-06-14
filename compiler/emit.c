@@ -10,17 +10,25 @@ void emit_init(FILE *fd) {
     emit_fd = fd;
 }
 
+void emit_line(char *line) {
+    fprintf(emit_fd, "\t%s\n", line);
+}
+
+void emit_comment(char *comment) {
+    fprintf(emit_fd, "\t# %s\n", comment);
+}
+
 void emit_section(int section) {
     if (cur_section != section) {
         cur_section = section;
         if (section == STORE_CODE) {
-            fprintf(emit_fd, ".text\n");
+            fprintf(emit_fd, "\n.text\n");
         } else if (section == STORE_DATA) {
-            fprintf(emit_fd, ".data\n");
+            fprintf(emit_fd, "\n.data\n");
         } else if (section == STORE_BSS) {
-            fprintf(emit_fd, ".bss\n");
+            fprintf(emit_fd, "\n.bss\n");
         } else if (section == STORE_RODATA) {
-            fprintf(emit_fd, ".section \"rodata\", \"ax\"\n");        
+            fprintf(emit_fd, "\n.section \"rodata\", \"ax\"\n");        
         }
     }
 }
@@ -34,20 +42,20 @@ void emit_global(char *sym) {
 }
 
 void emit_label(char *lbl) {
-    fprintf(emit_fd, "%s:\n", lbl);
+    fprintf(emit_fd, "%s:", lbl);
 }
 
 void emit_data(type_t *type, expr_t *expr) {
     if (type->specifier == TYPE_BYTE) {
-        fprintf(emit_fd, ".byte %d\n", expr->byte_literal_val);
+        fprintf(emit_fd, "\t.byte %d\n", expr->byte_literal_val);
     } else if (type->specifier == TYPE_HALF) {
-        fprintf(emit_fd, ".half %d\n", expr->half_literal_val);
+        fprintf(emit_fd, "\t.half %d\n", expr->half_literal_val);
     } else if (type->specifier == TYPE_WORD) {
-        fprintf(emit_fd, ".word %d\n", expr->word_literal_val);
+        fprintf(emit_fd, "\t.word %d\n", expr->word_literal_val);
     } else if (type->specifier == TYPE_DOBL) {
-        fprintf(emit_fd, ".quad %lld\n", expr->long_literal_val);
+        fprintf(emit_fd, "\t.quad %lld\n", expr->long_literal_val);
     } else if (type->specifier == TYPE_PTR) {
-        fprintf(emit_fd, ".quad %p\n", (void *) expr->long_literal_val);
+        fprintf(emit_fd, "\t.quad %p\n", (void *) expr->long_literal_val);
     } else if (type->specifier == TYPE_ARRAY) {
         /* composite type */
     } else {
@@ -56,11 +64,11 @@ void emit_data(type_t *type, expr_t *expr) {
 }
 
 void emit_string(char *str) {
-    fprintf(emit_fd, ".string %s\n", str);
+    fprintf(emit_fd, "\t.string %s\n", str);
 }
 
 void emit_space(int space) {
-    fprintf(emit_fd, ".space %d\n", space);
+    fprintf(emit_fd, "\t.space %d\n", space);
 }
 
 void emit_func_entry() {
@@ -841,4 +849,8 @@ void emit_fed_m4_macro() {
 
 void emit_use_m4_macro(char *macro_name) {
     fprintf(emit_fd, "%s`'", macro_name);    
+}
+
+void emit_nop() {
+    arch_nop();
 }

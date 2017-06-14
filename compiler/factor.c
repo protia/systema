@@ -65,18 +65,42 @@ expr_t *parse_str_literal() {
     expr->type->subtype->subtype->specifier = TYPE_BYTE;
     expr->type->subtype->subtype->complete = 1;
     expr->literal = 1;
-    expr->addr = get_new_label();
-    emit_section(STORE_RODATA);
-    emit_label(expr->addr);
-    emit_string(lex.val);
-    if (get_scope())
-        emit_section(STORE_CODE);
+    expr->addr = add_str_literal(lex.val);
     return expr;
+}
+
+void parse_assembly() {
+    char *line;
+    /* parse assembly */
+    get_lexeme(); 
+    /* parse ( */
+    get_lexeme();
+    if (strcmp(lex.val, "(")) {
+        print_err("expected (", 0);
+        unget_lexeme();
+    }
+    /* parse string literal */
+    get_lexeme();
+    if (lex.type != LEX_STR_LITERAL) {
+        print_err("expected string literal", 0);
+        unget_lexeme();
+    } else {
+        line = malloc(strlen(lex.val)+1);
+        strcpy(line, lex.val+1);
+        line[strlen(line) - 1] = 0;
+        emit_line(line);
+    }
+    /* parse ) */
+    get_lexeme();
+    if (strcmp(lex.val, ")")) {
+        print_err("expected )", 0);
+        unget_lexeme();
+    }
 }
 
 expr_t *parse_factor() {
     int unsignedf;
-    /* factor: parent | unsigned | identifier |
+    /* factor: parent | unsigned | assembly | identifier |
                int_literal | str_literal */
     expr_t *expr;
     /* look ahead */
@@ -92,18 +116,19 @@ expr_t *parse_factor() {
         get_lexeme(); /* unsigned */
         expr = parse_expr();
         reset_unsignedf(unsignedf);
+    } else if (!strcmp(lex.val, "assembly")) {
+        /* inline assembly */
+        parse_assembly();
+        expr = alloc_expr();
     } else if (lex.type == LEX_IDENTIFIER) {
         /* encountered identifier */
-        unget_lexeme();
         expr = parse_identifier();
     } else if (lex.type == LEX_INT_LITERAL || 
                lex.type == LEX_CHAR_LITERAL) {
         /* integer literal */
-        unget_lexeme();
         expr = parse_int_literal();
     } else if (lex.type == LEX_STR_LITERAL) {
         /* string literal */
-        unget_lexeme();
         expr = parse_str_literal();
     } else {
         print_err("expected identifier, literal, or (", 0);

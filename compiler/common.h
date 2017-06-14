@@ -280,6 +280,7 @@ void arch_pusharg(int reg, int arg);
 void arch_poparg(int arg, int reg);
 void arch_call(char *func_addr);
 void arch_call_indir(char *func_addr);
+void arch_nop();
 
 /* stack.c */
 void  init_stack_frame();
@@ -304,7 +305,8 @@ param_list_t *alloc_param_list();
 
 /* emit.c */
 void emit_init(FILE *fd);
-char *get_new_label();
+void emit_line(char *line);
+void emit_comment(char *comment);
 void emit_section(int section);
 void emit_local(char *sym);
 void emit_global(char *sym);
@@ -315,8 +317,8 @@ void emit_space(int space);
 void emit_func_entry();
 void emit_func_leave();
 void emit_jmp(char *lbl);
-int emit_get_reg(int usage, int indx);
-int emit_get_reg_size(char *reg_name);
+int  emit_get_reg(int usage, int indx);
+int  emit_get_reg_size(char *reg_name);
 void emit_load(expr_t *expr, int reg);
 void emit_loadaddr(expr_t *expr, int reg);
 void emit_store(int reg, expr_t *expr);
@@ -354,6 +356,7 @@ void emit_call(expr_t *expr);
 void emit_def_m4_macro(char *macro_name);
 void emit_fed_m4_macro();
 void emit_use_m4_macro(char *macro_name);
+void emit_nop();
 
 /* symtab.c */
 sym_t *get_sym(char *name);
@@ -373,6 +376,10 @@ int type_match(type_t *type1, type_t *type2, int strict);
 
 /* cast.c */
 expr_t *type_cast(expr_t *before, type_t *new_type);
+
+/* text.c */
+char *add_str_literal(char *str_literal);
+void str_literal_flush();
 
 /* literal.c */
 void literal_type_cast(expr_t *before, expr_t *after);

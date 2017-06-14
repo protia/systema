@@ -74,7 +74,7 @@ loc_t *parse_in_loc() {
                 print_err("expected (", 0);
                 unget_lexeme();
             }
-            /* expect string literal */
+            /* parse string literal */
             get_lexeme();
             if (lex.type != LEX_STR_LITERAL) {
                 print_err("expected string literal", 0);
@@ -362,6 +362,7 @@ int parse_dim_stmt() {
 
         /* a function! */
         emit_section(STORE_CODE);
+        emit_line("");
 
         /* only one identifier should be named */
         if (id_list->count > 1) {

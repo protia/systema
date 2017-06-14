@@ -9,11 +9,13 @@ void parse_if() {
     char *lbl1 = get_new_label();
     int reg = emit_get_reg(REG_ACC, 0);
     int done = 0;
+    int has_else = 0;
 
     /* if */
     get_lexeme();
     
     /* expr */
+    emit_comment("IF: CONDITION EXPRESSION EVALUATION");
     expr = parse_expr();
     
     /* expr must be numerical */
@@ -23,6 +25,7 @@ void parse_if() {
         expr->type->specifier == TYPE_DOBL ||
         expr->type->specifier == TYPE_PTR) {
         /* branch if zero */
+        emit_comment("IF: BRANCH IF COND EXPR == ZERO");
         emit_load(expr, reg);
         emit_bze(expr->type, reg, lbl1);
     } else {
@@ -37,7 +40,11 @@ void parse_if() {
     }
     
     /* statements */
+    emit_comment("IF: TRUE STATEMENT BLOCK");
     parse_stmt_list();
+    
+    /* jmp to end of if */
+    emit_jmp(lbl2);
     
     /* lookahead */
     get_lexeme();
@@ -45,21 +52,18 @@ void parse_if() {
     
     /* else/elseif? */
     if(strcmp(lex.val, "endif")) {
-        /* jmp to end of if */
-        emit_jmp(lbl2);
-        
-        /* lbl1 goes here */
-        emit_label(lbl1);
-        
         /* either elsif, else, or endif */
         while (!done) {
             get_lexeme();
-            if (!strcmp(lex.val, "elsif") || !strcmp(lex.val, "else") ) {  
+            if (!strcmp(lex.val, "elsif") || !strcmp(lex.val, "else")) {            
+                /* lbl1 goes here */
+                emit_label(lbl1);
                 /* allocate new label */
                 lbl1 = get_new_label();
                 /* for elseif, evaluate condition */
                 if (!strcmp(lex.val, "elsif")) {
                     /* expr */
+                    emit_comment("IF: ELSIF CONDITION EXPRESSION");
                     expr = parse_expr();
                     /* expr must be numerical */
                     if (expr->type->specifier == TYPE_BYTE ||
@@ -68,6 +72,7 @@ void parse_if() {
                         expr->type->specifier == TYPE_DOBL ||
                         expr->type->specifier == TYPE_PTR) {
                         /* branch if zero */
+                        emit_comment("IF: BRANCH IF COND EXPR == ZERO");
                         emit_load(expr, reg);
                         emit_bze(expr->type, reg, lbl1);
                     } else {
@@ -82,24 +87,38 @@ void parse_if() {
                 } else {
                     /* done */
                     done = 1;
+                    has_else = 1;
                 }
                 /* statements */
+                if (!has_else) {
+                    emit_comment("IF: ELSIF STATEMENT BLOCK");
+                } else {
+                    emit_comment("IF: ELSE STATEMENT BLOCK");
+                }
                 parse_stmt_list();
                 /* jmp to end of if */
-                emit_jmp(lbl2);    
-                /* lbl1 goes here */
-                emit_label(lbl1);
+                if (!has_else) {
+                    emit_jmp(lbl2); 
+                }
             } else {
                 unget_lexeme();
                 done = 1;
             }
         }
+        /* else encountered? */
+        if (!has_else) {
+            emit_comment("IF: PSEUDO ELSE CLAUSE");
+            emit_label(lbl1);
+            emit_nop();
+        }
+    
         /* label of final */
         emit_label(lbl2);
     } else {
-        /* label of final */
+        /* enough playing */
         emit_label(lbl1);
     }
+    
     /* endif */
     get_lexeme();
     if (strcmp(lex.val, "endif")) {
@@ -154,6 +173,7 @@ void parse_stmt_list() {
             } else {
                 /* expression list */
                 unget_lexeme();
+                emit_comment("EXPRESSION STATEMENT");
                 parse_expr_list();
             }
             /* semicolon */

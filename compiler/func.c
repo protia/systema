@@ -262,6 +262,7 @@ void parse_func(sym_t *sym) {
     param_list_t *param_list;
 
     /* function entry point assembly code */
+    emit_comment("FUNCTION ENTRY");
     emit_func_entry();
 
     /* enter a new scope level */
@@ -274,6 +275,7 @@ void parse_func(sym_t *sym) {
     type = sym->type = parse_func_header();
 
     /* loop over function parameters */
+    emit_comment("COPY FUNCTION PARAMETERS");
     param_list = type->param_list;
     while (param_list->count != 0 && !param_list->any) {
         /* add to symtab */
@@ -314,6 +316,7 @@ void parse_func(sym_t *sym) {
     }
 
     /* evaluate dims */
+    emit_comment("EVALUATE VARIABLE DEFINITIONS");
     parse_dim_list();
 
     /* parse begin */
@@ -363,6 +366,7 @@ void parse_func(sym_t *sym) {
     }
 
     /* function termination */
+    emit_comment("FUNCTION EXIT");
     emit_func_leave();
 
     /* delete symbols of current scope */

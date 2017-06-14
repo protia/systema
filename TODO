@@ -1,14 +1,11 @@
 Suggested TODO list:
 ---------------------
 
--> machine instructions
--> assembly language comments
-
--> sysp, sysc, sysa, sysl
-
 -> for loop
 -> while loop
 -> case when
+
+-> sysp, sysc, sysa, sysl
 
 -> text processing
 

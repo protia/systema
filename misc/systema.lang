@@ -197,10 +197,13 @@
       <keyword>typ</keyword>
       <keyword>sub</keyword>
       <keyword>local</keyword>
-      <keyword>in</keyword>
       <keyword>as</keyword>
+      <keyword>in</keyword>
       <keyword>returns</keyword>
       <keyword>begin</keyword>
+      <keyword>assembly</keyword>
+      <keyword>sizeof</keyword>
+      <keyword>typeof</keyword>
       <keyword>if</keyword>
       <keyword>unsigned</keyword>
       <keyword>and</keyword>

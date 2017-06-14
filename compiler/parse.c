@@ -8,4 +8,6 @@ void parse_file() {
     if (lex.type != LEX_EOF) {
         print_err("expected end of file.", NULL);
     }
+    /* flush all strings */
+    str_literal_flush();
 }
