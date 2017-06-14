@@ -74,11 +74,17 @@ char *keywords[] = {
     "sub",
     "local",
     "as",
+    "in",
+    "code",
+    "rodata",
+    "data",
+    "bss",
+    "stack",
+    "register",
     "byte",
     "twin",
     "quad",
     "octt",
-    "register",
     "func",
     "text",
     "record",
@@ -130,7 +136,6 @@ int iskeyword(char *str) {
     }
     return found;
 }
-
 
 int isnum(char chr) {
     return chr >= '0' && chr <= '9';

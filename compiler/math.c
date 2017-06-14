@@ -5,7 +5,6 @@
 
 expr_t *parse_unary_post() {
     expr_t *expr, *expr1;
-    type_t *type;
     int done = 0;
     char op[10];
     /* unary_post: factor post_op* */
@@ -43,10 +42,6 @@ expr_t *parse_unary_post() {
             expr = do_binary(expr, "[", expr1);
         } else if (!strcmp(lex.val, ".")) {
             /* record member */
-        } else if (!strcmp(lex.val, "as")) {
-            /* type casting! */
-            type = parse_type();
-            expr = type_cast(expr, type);            
         } else {
             /* no more */
             unget_lexeme();
@@ -88,11 +83,33 @@ expr_t *parse_unary_pre() {
     return expr;
 }
 
+expr_t *parse_cast() {
+    expr_t *expr;
+    type_t *type;
+    int done = 0;        
+    /* cast: unary_pre (as type)* */
+    expr = parse_unary_pre();
+    /* perform all casts */
+    while (!done) {
+        get_lexeme();
+        if (!strcmp(lex.val, "as")) {
+            /* type casting! */
+            type = parse_type();
+            expr = type_cast(expr, type);  
+        } else {
+            unget_lexeme();
+            done = 1;
+        }
+    }
+    /* finished */
+    return expr;
+}
+
 expr_t *parse_muldiv() {
     expr_t *expr, *expr1, *expr2;
     char op[10];
-    /* muldiv: unary_pre (('*'|'/'|'%') muldiv | lambda) */
-    expr1 = parse_unary_pre();
+    /* muldiv: cast (('*'|'/'|'%') muldiv | lambda) */
+    expr1 = parse_cast();
     /* lookahead */
     get_lexeme();
     /* *, /, or % ? */
@@ -102,7 +119,7 @@ expr_t *parse_muldiv() {
         /* mul/div/mod operator */
         strcpy(op, lex.val);
         /* parse second operand */
-        expr2 = parse_unary_pre();
+        expr2 = parse_cast();
         /* generate code for mul/div/mod operation */
         expr1 = do_binary(expr1, op, expr2);
         /* get next */

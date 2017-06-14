@@ -329,7 +329,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 emit_load(expr1, reg1);
                 emit_label(lbl3);
             } else if (!strcmp(op, ">")) {
-                emit_bgt(op1->type, reg1, reg2, lbl2);
+                if (get_unsignedf()) {
+                    emit_bgt_unsigned(op1->type, reg1, reg2, lbl2);
+                } else {
+                    emit_bgt(op1->type, reg1, reg2, lbl2);
+                }
                 emit_label(lbl1);
                 emit_load(expr0, reg1);
                 emit_jmp(lbl3);
@@ -337,7 +341,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 emit_load(expr1, reg1);
                 emit_label(lbl3);    
             } else if (!strcmp(op, ">=")) {
-                emit_bge(op1->type, reg1, reg2, lbl2);
+                if (get_unsignedf()) {
+                    emit_bge_unsigned(op1->type, reg1, reg2, lbl2);
+                } else {
+                    emit_bge(op1->type, reg1, reg2, lbl2);
+                }
                 emit_label(lbl1);
                 emit_load(expr0, reg1);
                 emit_jmp(lbl3);
@@ -345,7 +353,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 emit_load(expr1, reg1);
                 emit_label(lbl3);    
             } else if (!strcmp(op, "<")) {
-                emit_blt(op1->type, reg1, reg2, lbl2);
+                if (get_unsignedf()) {
+                    emit_blt_unsigned(op1->type, reg1, reg2, lbl2);
+                } else {
+                    emit_blt(op1->type, reg1, reg2, lbl2);
+                }
                 emit_label(lbl1);
                 emit_load(expr0, reg1);
                 emit_jmp(lbl3);
@@ -353,7 +365,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 emit_load(expr1, reg1);
                 emit_label(lbl3);    
             } else if (!strcmp(op, "<=")) {
-                emit_ble(op1->type, reg1, reg2, lbl2);
+                if (get_unsignedf()) {
+                    emit_ble_unsigned(op1->type, reg1, reg2, lbl2);
+                } else {
+                    emit_ble(op1->type, reg1, reg2, lbl2);
+                }
                 emit_label(lbl1);
                 emit_load(expr0, reg1);
                 emit_jmp(lbl3);
@@ -367,7 +383,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             } else if (!strcmp(op, "^")) {
                 emit_xor(op1->type, reg2, reg1);
             } else if (!strcmp(op, ">>")) {
-                emit_sra(op1->type, reg2, reg1);
+                if (get_unsignedf()) {
+                    emit_srl(op1->type, reg2, reg1);
+                } else {
+                    emit_sra(op1->type, reg2, reg1);
+                }
             } else if (!strcmp(op, "<<")) {
                 emit_sll(op1->type, reg2, reg1);
             } else {

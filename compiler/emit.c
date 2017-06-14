@@ -76,8 +76,11 @@ void emit_jmp(char *lbl) {
 }
 
 int emit_get_reg(int usage, int indx) {
-    /* get machine register */
     return arch_get_reg(usage, indx);
+}
+
+int emit_get_reg_size(char *reg_name) {
+    return arch_get_reg_size(reg_name);
 }
 
 void emit_load(expr_t *expr, int reg) {
@@ -258,10 +261,10 @@ void emit_store(int reg, expr_t *expr) {
     }
 }
 
-void emit_sign_extend(type_t *src_type, type_t *dest_type, int reg) {
+void emit_extend_signed(type_t *src_type, type_t *dest_type, int reg) {
     int from = src_type->specifier;
     int to = dest_type->specifier;
-    /* sign extension */
+    /* signed extension */
     if (from == TYPE_BYTE && to == TYPE_HALF) {
         arch_extbh(reg);
     } else if (from == TYPE_BYTE && to == TYPE_WORD) {
@@ -274,6 +277,27 @@ void emit_sign_extend(type_t *src_type, type_t *dest_type, int reg) {
         arch_exthl(reg);    
     } else if (from == TYPE_WORD && (to == TYPE_DOBL || to == TYPE_PTR)) {
         arch_extwl(reg);
+    } else {
+        /* do nothing */
+    }
+}
+
+void emit_extend_unsigned(type_t *src_type, type_t *dest_type, int reg) {
+    int from = src_type->specifier;
+    int to = dest_type->specifier;
+    /* unsigned extension */
+    if (from == TYPE_BYTE && to == TYPE_HALF) {
+        arch_extbh_zero(reg);
+    } else if (from == TYPE_BYTE && to == TYPE_WORD) {
+        arch_extbw_zero(reg);
+    } else if (from == TYPE_BYTE && (to == TYPE_DOBL || to == TYPE_PTR)) {
+        arch_extbl_zero(reg);
+    } else if (from == TYPE_HALF && to == TYPE_WORD) {
+        arch_exthw_zero(reg);
+    } else if (from == TYPE_HALF && (to == TYPE_DOBL || to == TYPE_PTR)) {
+        arch_exthl_zero(reg);    
+    } else if (from == TYPE_WORD && (to == TYPE_DOBL || to == TYPE_PTR)) {
+        arch_extwl_zero(reg);
     } else {
         /* do nothing */
     }
@@ -650,6 +674,90 @@ void emit_ble(type_t *type, int reg1, int reg2, char *lbl) {
         case TYPE_DOBL:
         case TYPE_PTR:
             arch_blel(reg1, reg2, lbl);
+            break;
+        default:
+            print_err("<bug> emit_ble(): invalid type", 0);
+            break;
+    }
+}
+
+void emit_bgt_unsigned(type_t *type, int reg1, int reg2, char *lbl) {
+    switch(type->specifier) {
+        case TYPE_BYTE:
+            arch_bgtb_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_HALF:
+            arch_bgth_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_WORD:
+            arch_bgtw_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_DOBL:
+        case TYPE_PTR:
+            arch_bgtl_unsigned(reg1, reg2, lbl);
+            break;
+        default:
+            print_err("<bug> emit_bgt(): invalid type", 0);
+            break;
+    }
+}
+
+void emit_bge_unsigned(type_t *type, int reg1, int reg2, char *lbl) {
+    switch(type->specifier) {
+        case TYPE_BYTE:
+            arch_bgeb_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_HALF:
+            arch_bgeh_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_WORD:
+            arch_bgew_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_DOBL:
+        case TYPE_PTR:
+            arch_bgel_unsigned(reg1, reg2, lbl);
+            break;
+        default:
+            print_err("<bug> emit_bge(): invalid type", 0);
+            break;
+    }
+}
+
+void emit_blt_unsigned(type_t *type, int reg1, int reg2, char *lbl) {
+    switch(type->specifier) {
+        case TYPE_BYTE:
+            arch_bltb_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_HALF:
+            arch_blth_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_WORD:
+            arch_bltw_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_DOBL:
+        case TYPE_PTR:
+            arch_bltl_unsigned(reg1, reg2, lbl);
+            break;
+        default:
+            print_err("<bug> emit_blt(): invalid type", 0);
+            break;
+    }
+}
+
+void emit_ble_unsigned(type_t *type, int reg1, int reg2, char *lbl) {
+    switch(type->specifier) {
+        case TYPE_BYTE:
+            arch_bleb_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_HALF:
+            arch_bleh_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_WORD:
+            arch_blew_unsigned(reg1, reg2, lbl);
+            break;
+        case TYPE_DOBL:
+        case TYPE_PTR:
+            arch_blel_unsigned(reg1, reg2, lbl);
             break;
         default:
             print_err("<bug> emit_ble(): invalid type", 0);

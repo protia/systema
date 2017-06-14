@@ -5,6 +5,14 @@
 
 extern FILE *emit_fd; /* from emit.c */
 
+typedef struct {
+    char *name;
+    int  size;
+} reg_t;
+
+static reg_t regs[1000];
+int regs_init = 0;
+
 void arch_sp_fmt(char *str, int offset) {
     itoa(str, offset);
     strcat(str, "(%rbp)");
@@ -82,6 +90,150 @@ char *arch_get_reg_name(int reg, int size) {
         }
     }
     return name;
+}
+
+int arch_get_reg_size(char *reg_name) {
+    int i = 0;
+    if (!regs_init) {
+        /* initialize */
+        regs[i].name =    "%al"; regs[i++].size = 1;
+        regs[i].name =    "%bl"; regs[i++].size = 1;
+        regs[i].name =    "%cl"; regs[i++].size = 1;
+        regs[i].name =    "%dl"; regs[i++].size = 1;
+        regs[i].name =    "%ah"; regs[i++].size = 1;
+        regs[i].name =    "%bh"; regs[i++].size = 1;
+        regs[i].name =    "%ch"; regs[i++].size = 1;
+        regs[i].name =    "%dh"; regs[i++].size = 1;
+        regs[i].name =   "%sil"; regs[i++].size = 1;
+        regs[i].name =   "%dil"; regs[i++].size = 1;
+        regs[i].name =   "%bpl"; regs[i++].size = 1;
+        regs[i].name =   "%spl"; regs[i++].size = 1;
+        regs[i].name =   "%r8b"; regs[i++].size = 1;
+        regs[i].name =   "%r9b"; regs[i++].size = 1;
+        regs[i].name =  "%r10b"; regs[i++].size = 1;
+        regs[i].name =  "%r11b"; regs[i++].size = 1;
+        regs[i].name =  "%r12b"; regs[i++].size = 1;
+        regs[i].name =  "%r13b"; regs[i++].size = 1;
+        regs[i].name =  "%r14b"; regs[i++].size = 1;
+        regs[i].name =  "%r15b"; regs[i++].size = 1;
+        
+        regs[i].name =    "%ax"; regs[i++].size = 2;
+        regs[i].name =    "%bx"; regs[i++].size = 2;
+        regs[i].name =    "%cx"; regs[i++].size = 2;
+        regs[i].name =    "%dx"; regs[i++].size = 2;
+        regs[i].name =    "%si"; regs[i++].size = 2;
+        regs[i].name =    "%di"; regs[i++].size = 2;
+        regs[i].name =    "%bp"; regs[i++].size = 2;
+        regs[i].name =    "%sp"; regs[i++].size = 2;
+        regs[i].name =   "%r8w"; regs[i++].size = 2;
+        regs[i].name =   "%r9w"; regs[i++].size = 2;
+        regs[i].name =  "%r10w"; regs[i++].size = 2;
+        regs[i].name =  "%r11w"; regs[i++].size = 2;
+        regs[i].name =  "%r12w"; regs[i++].size = 2;
+        regs[i].name =  "%r13w"; regs[i++].size = 2;
+        regs[i].name =  "%r14w"; regs[i++].size = 2;
+        regs[i].name =  "%r15w"; regs[i++].size = 2;
+    
+        regs[i].name =   "%eax"; regs[i++].size = 4;
+        regs[i].name =   "%ebx"; regs[i++].size = 4;
+        regs[i].name =   "%ecx"; regs[i++].size = 4;
+        regs[i].name =   "%edx"; regs[i++].size = 4;
+        regs[i].name =   "%esi"; regs[i++].size = 4;
+        regs[i].name =   "%edi"; regs[i++].size = 4;
+        regs[i].name =   "%ebp"; regs[i++].size = 4;
+        regs[i].name =   "%esp"; regs[i++].size = 4;
+        regs[i].name =   "%r8d"; regs[i++].size = 4;
+        regs[i].name =   "%r9d"; regs[i++].size = 4;
+        regs[i].name =  "%r10d"; regs[i++].size = 4;
+        regs[i].name =  "%r11d"; regs[i++].size = 4;
+        regs[i].name =  "%r12d"; regs[i++].size = 4;
+        regs[i].name =  "%r13d"; regs[i++].size = 4;
+        regs[i].name =  "%r14d"; regs[i++].size = 4;
+        regs[i].name =  "%r15d"; regs[i++].size = 4;
+        
+        regs[i].name =   "%rax"; regs[i++].size = 8;
+        regs[i].name =   "%rbx"; regs[i++].size = 8;
+        regs[i].name =   "%rcx"; regs[i++].size = 8;
+        regs[i].name =   "%rdx"; regs[i++].size = 8;
+        regs[i].name =   "%rsi"; regs[i++].size = 8;
+        regs[i].name =   "%rdi"; regs[i++].size = 8;
+        regs[i].name =   "%rbp"; regs[i++].size = 8;
+        regs[i].name =   "%rsp"; regs[i++].size = 8;
+        regs[i].name =    "%r8"; regs[i++].size = 8;
+        regs[i].name =    "%r9"; regs[i++].size = 8;
+        regs[i].name =   "%r10"; regs[i++].size = 8;
+        regs[i].name =   "%r11"; regs[i++].size = 8;
+        regs[i].name =   "%r12"; regs[i++].size = 8;
+        regs[i].name =   "%r13"; regs[i++].size = 8;
+        regs[i].name =   "%r14"; regs[i++].size = 8;
+        regs[i].name =   "%r15"; regs[i++].size = 8;
+        
+        regs[i].name =    "%cs"; regs[i++].size = 2;
+        regs[i].name =    "%ds"; regs[i++].size = 2;
+        regs[i].name =    "%es"; regs[i++].size = 2;
+        regs[i].name =    "%fs"; regs[i++].size = 2;
+        regs[i].name =    "%gs"; regs[i++].size = 2;
+        regs[i].name =    "%ss"; regs[i++].size = 2;
+        
+        regs[i].name =   "%cr0"; regs[i++].size = 8;
+        regs[i].name =   "%cr1"; regs[i++].size = 8;
+        regs[i].name =   "%cr2"; regs[i++].size = 8;
+        regs[i].name =   "%cr3"; regs[i++].size = 8;
+        regs[i].name =   "%cr4"; regs[i++].size = 8;
+        regs[i].name =   "%cr5"; regs[i++].size = 8;
+        regs[i].name =   "%cr6"; regs[i++].size = 8;
+        regs[i].name =   "%cr7"; regs[i++].size = 8;
+        regs[i].name =   "%cr8"; regs[i++].size = 8;
+        
+        regs[i].name =   "%dr0"; regs[i++].size = 8;
+        regs[i].name =   "%dr1"; regs[i++].size = 8;
+        regs[i].name =   "%dr2"; regs[i++].size = 8;
+        regs[i].name =   "%dr3"; regs[i++].size = 8;
+        regs[i].name =   "%dr6"; regs[i++].size = 8;
+        regs[i].name =   "%dr7"; regs[i++].size = 8;
+        
+        regs[i].name =   "%tr3"; regs[i++].size = 4;
+        regs[i].name =   "%tr4"; regs[i++].size = 4;
+        regs[i].name =   "%tr5"; regs[i++].size = 4;
+        regs[i].name =   "%tr6"; regs[i++].size = 4;
+        regs[i].name =   "%tr7"; regs[i++].size = 4;
+        
+        regs[i].name =   "%mm0"; regs[i++].size = 8;
+        regs[i].name =   "%mm1"; regs[i++].size = 8;
+        regs[i].name =   "%mm2"; regs[i++].size = 8;
+        regs[i].name =   "%mm3"; regs[i++].size = 8;
+        regs[i].name =   "%mm4"; regs[i++].size = 8;
+        regs[i].name =   "%mm5"; regs[i++].size = 8;
+        regs[i].name =   "%mm6"; regs[i++].size = 8;
+        regs[i].name =   "%mm7"; regs[i++].size = 8;
+        
+        regs[i].name = "%xmm00"; regs[i++].size = 16;
+        regs[i].name = "%xmm01"; regs[i++].size = 16;
+        regs[i].name = "%xmm02"; regs[i++].size = 16;
+        regs[i].name = "%xmm03"; regs[i++].size = 16;
+        regs[i].name = "%xmm04"; regs[i++].size = 16;
+        regs[i].name = "%xmm05"; regs[i++].size = 16;
+        regs[i].name = "%xmm06"; regs[i++].size = 16;
+        regs[i].name = "%xmm07"; regs[i++].size = 16;
+        regs[i].name = "%xmm08"; regs[i++].size = 16;
+        regs[i].name = "%xmm09"; regs[i++].size = 16;
+        regs[i].name = "%xmm10"; regs[i++].size = 16;
+        regs[i].name = "%xmm11"; regs[i++].size = 16;
+        regs[i].name = "%xmm12"; regs[i++].size = 16;
+        regs[i].name = "%xmm13"; regs[i++].size = 16;
+        regs[i].name = "%xmm14"; regs[i++].size = 16;
+        regs[i].name = "%xmm15"; regs[i++].size = 16;
+        
+        regs[i].name = NULL;
+        regs[i].size = 0;
+        regs_init = 1;
+    }
+    /* look for register */
+    i = 0;
+    while (regs[i].name && strcmp(regs[i].name, reg_name)) {
+        i++;    
+    }
+    return regs[i].size;
 }
 
 void arch_func_entry() {
@@ -280,8 +432,8 @@ void arch_exthl_zero(int reg) {
 
 void arch_extwl_zero(int reg) {
     char *reg_name1 = arch_get_reg_name(reg, 4);
-    char *reg_name2 = arch_get_reg_name(reg, 8);
-    fprintf(emit_fd, "    movzlq %s, %s\n", reg_name1, reg_name2);
+    char *reg_name2 = arch_get_reg_name(reg, 4);
+    fprintf(emit_fd, "    movl   %s, %s\n", reg_name1, reg_name2);
 }
 
 void arch_addb(int src_reg, int dest_reg) {
@@ -778,7 +930,7 @@ void arch_bleb(int reg1, int reg2, char *lbl) {
     char *reg1_name = arch_get_reg_name(reg1, 1);
     char *reg2_name = arch_get_reg_name(reg2, 1);
     fprintf(emit_fd, "    cmpb   %s, %s\n", reg2_name, reg1_name);
-    fprintf(emit_fd, "    jl     %s\n", lbl);
+    fprintf(emit_fd, "    jle    %s\n", lbl);
 }
 
 void arch_bleh(int reg1, int reg2, char *lbl) {
@@ -800,6 +952,118 @@ void arch_blel(int reg1, int reg2, char *lbl) {
     char *reg2_name = arch_get_reg_name(reg2, 8);
     fprintf(emit_fd, "    cmpq   %s, %s\n", reg2_name, reg1_name);
     fprintf(emit_fd, "    jle    %s\n", lbl);
+}
+
+void arch_bgtb_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 1);
+    char *reg2_name = arch_get_reg_name(reg2, 1);
+    fprintf(emit_fd, "    cmpb   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    ja     %s\n", lbl);
+}
+
+void arch_bgth_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 2);
+    char *reg2_name = arch_get_reg_name(reg2, 2);
+    fprintf(emit_fd, "    cmpw   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    ja     %s\n", lbl);
+}
+
+void arch_bgtw_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 4);
+    char *reg2_name = arch_get_reg_name(reg2, 4);
+    fprintf(emit_fd, "    cmpl   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    ja     %s\n", lbl);
+}
+
+void arch_bgtl_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 8);
+    char *reg2_name = arch_get_reg_name(reg2, 8);
+    fprintf(emit_fd, "    cmpq   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    ja     %s\n", lbl);
+}
+
+void arch_bgeb_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 1);
+    char *reg2_name = arch_get_reg_name(reg2, 1);
+    fprintf(emit_fd, "    cmpb   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jae    %s\n", lbl);
+}
+
+void arch_bgeh_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 2);
+    char *reg2_name = arch_get_reg_name(reg2, 2);
+    fprintf(emit_fd, "    cmpw   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jae    %s\n", lbl);
+}
+
+void arch_bgew_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 4);
+    char *reg2_name = arch_get_reg_name(reg2, 4);
+    fprintf(emit_fd, "    cmpl   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jae    %s\n", lbl);
+}
+
+void arch_bgel_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 8);
+    char *reg2_name = arch_get_reg_name(reg2, 8);
+    fprintf(emit_fd, "    cmpq   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jae    %s\n", lbl);
+}
+
+void arch_bltb_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 1);
+    char *reg2_name = arch_get_reg_name(reg2, 1);
+    fprintf(emit_fd, "    cmpb   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jb     %s\n", lbl);
+}
+
+void arch_blth_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 2);
+    char *reg2_name = arch_get_reg_name(reg2, 2);
+    fprintf(emit_fd, "    cmpw   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jb     %s\n", lbl);
+}
+
+void arch_bltw_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 4);
+    char *reg2_name = arch_get_reg_name(reg2, 4);
+    fprintf(emit_fd, "    cmpl   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jb     %s\n", lbl);
+}
+
+void arch_bltl_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 8);
+    char *reg2_name = arch_get_reg_name(reg2, 8);
+    fprintf(emit_fd, "    cmpq   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jb     %s\n", lbl);
+}
+
+void arch_bleb_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 1);
+    char *reg2_name = arch_get_reg_name(reg2, 1);
+    fprintf(emit_fd, "    cmpb   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jbe    %s\n", lbl);
+}
+
+void arch_bleh_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 2);
+    char *reg2_name = arch_get_reg_name(reg2, 2);
+    fprintf(emit_fd, "    cmpw   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jbe    %s\n", lbl);
+}
+
+void arch_blew_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 4);
+    char *reg2_name = arch_get_reg_name(reg2, 4);
+    fprintf(emit_fd, "    cmpl   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jbe    %s\n", lbl);
+}
+
+void arch_blel_unsigned(int reg1, int reg2, char *lbl) {
+    char *reg1_name = arch_get_reg_name(reg1, 8);
+    char *reg2_name = arch_get_reg_name(reg2, 8);
+    fprintf(emit_fd, "    cmpq   %s, %s\n", reg2_name, reg1_name);
+    fprintf(emit_fd, "    jbe    %s\n", lbl);
 }
 
 void arch_bzeb(int reg, char *lbl) {

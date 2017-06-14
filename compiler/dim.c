@@ -1,6 +1,14 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include "common.h"
+
+#define LOC_REGISTER    0
+#define LOC_STACK       1
+#define LOC_CODE        2
+#define LOC_RODATA      3
+#define LOC_DATA        4
+#define LOC_BSS         5
 
 int parse_dim_keyword() {
     /* dim_keyword: def | dec | typ */
@@ -40,6 +48,64 @@ int parse_local_keyword() {
     return ret;
 }
 
+loc_t *parse_in_loc() {
+    /* in_loc: 'in' loc | lambda */
+    loc_t *loc = NULL;
+    get_lexeme();
+    if (!strcmp(lex.val, "in")) {
+        /* location is specified */
+        loc = alloc_loc();
+        get_lexeme();
+        if (!strcmp(lex.val, "code")) {
+            loc->specifier = STORE_CODE;
+        } else if (!strcmp(lex.val, "rodata")) {
+            loc->specifier = STORE_RODATA;
+        } else if (!strcmp(lex.val, "data")) {
+            loc->specifier = STORE_DATA;        
+        } else if (!strcmp(lex.val, "bss")) {
+            loc->specifier = STORE_BSS;
+        } else if (!strcmp(lex.val, "stack")) {
+            loc->specifier = STORE_STACK;
+        } else if (!strcmp(lex.val, "register")) {
+            loc->specifier = STORE_REG;
+            /* parse ( */
+            get_lexeme();
+            if (strcmp(lex.val, "(")) {
+                print_err("expected (", 0);
+                unget_lexeme();
+            }
+            /* expect string literal */
+            get_lexeme();
+            if (lex.type != LEX_STR_LITERAL) {
+                print_err("expected string literal", 0);
+                unget_lexeme();
+                loc = NULL;
+            } else {
+                loc->reg_name = malloc(strlen(lex.val)+1);
+                strcpy(loc->reg_name, lex.val+1);
+                loc->reg_name[strlen(loc->reg_name) - 1] = 0;
+                loc->reg_size = emit_get_reg_size(loc->reg_name);
+                if (loc->reg_size == 0) {
+                    print_err("no such register", 0);
+                    loc = NULL;
+                }
+            }
+            /* parse ) */
+            get_lexeme();
+            if (strcmp(lex.val, ")")) {
+                print_err("expected )", 0);
+                unget_lexeme();
+            }
+        } else {
+            print_err("unknown location", 0);
+            loc = NULL;
+        }
+    } else {
+        unget_lexeme();
+    }
+    return loc;
+}
+
 type_t *parse_as_type() {
     /* dim_type: 'as' type | lambda */
     type_t *type = NULL;
@@ -69,14 +135,16 @@ expr_list_t *parse_ass() {
 
 int parse_dim_stmt() {
     int err = 0, i;
+    loc_t *loc;
     type_t *type;
     expr_list_t *expr_list, *eptr;
     id_list_t *id_list, *iptr;
+    expr_t *lvalue;
     int local = 0;
     int dim_type;
         
     /* dim_stmt: dim_keyword local_keyword id_list 
-     *           (as_type dim_ass | func_body) ;
+     *           (as_type in_loc dim_ass | func_body) ;
      */
     
     /* parse dim keyword */
@@ -126,9 +194,57 @@ int parse_dim_stmt() {
             err = 1;
         }
         
-        /* 5: parse ass */
+        /* parse location */
+        loc = parse_in_loc();
+                
+        /* parse assignment */
         expr_list = parse_ass();
         
+        /* determine location */
+        if (!loc) {
+            /* no location specified, use default */
+            loc = alloc_loc();
+            if (get_scope()) {
+                loc->specifier = STORE_STACK;
+            } else if (expr_list) {
+                loc->specifier = STORE_DATA;
+            } else {
+                loc->specifier = STORE_BSS;
+            }
+        } else if (!err) {
+            /* scope defined by user, check it. */
+            if (get_scope() && loc->specifier < STORE_STACK) {
+                print_err("invalid location for internal variable", 0);
+                err = 1;
+            } else if (!get_scope() && loc->specifier >= STORE_STACK) {
+                print_err("invalid location for external variable", 0);
+                err = 1;
+            } else if (dim_type != DIM_DEF) {
+                print_err("location can't be specified with dec/typ", 0);
+                err = 1;
+            } else if (loc->specifier == STORE_BSS && expr_list) {
+                print_err("bss can't hold initialized data", 0);
+                err = 1;
+            } else if (loc->specifier == STORE_REG) {
+                /* match register with type */
+                if (type->specifier==TYPE_BYTE && loc->reg_size==1) {
+                    /* 1 BYTE ~ OK */
+                } else if (type->specifier==TYPE_HALF && loc->reg_size==2) {
+                    /* 2 BYTES ~ OK */
+                } else if (type->specifier==TYPE_WORD && loc->reg_size==4) {
+                    /* 4 BYTES ~ OK */
+                } else if (type->specifier==TYPE_DOBL && loc->reg_size==8) {
+                    /* 8 BYTES ~ OK */
+                } else if (type->specifier==TYPE_PTR  && loc->reg_size==8) {
+                    /* 8 BYTES ~ OK */
+                } else {
+                    print_err("type and register specifiers do not match",0);
+                    printf("reg_size: %d\n", loc->reg_size);
+                    err = 1;
+                }
+            }
+        }
+
         /* if expr_list is specified, check size */
         if (expr_list && expr_list->count != id_list->count) {
             print_err("expression list size <> identifiers", 0); 
@@ -170,7 +286,7 @@ int parse_dim_stmt() {
                 print_err("types are inconsistent", 0);
             }
         }
-
+                
         /* do action! */
         iptr = id_list;
         eptr = expr_list;
@@ -178,21 +294,26 @@ int parse_dim_stmt() {
             if (dim_type == DIM_DEF) {
                 /* definition */
                 if (get_scope()) {
-                    /* allocate stack space */
-                    iptr->sym->val = get_new_addr(type_size(type));
-                    
+                    /* in register? */
+                    if (loc->specifier == STORE_REG) {
+                        iptr->sym->val = loc->reg_name;
+                    } else {
+                        /* allocate stack space */
+                        iptr->sym->val = get_new_addr(type_size(type));
+                    }
                     /* initialized? */
-                    /* TODO */
-
+                    if (expr_list) {
+                        lvalue = alloc_expr();
+                        lvalue->type = type;
+                        lvalue->addr = iptr->sym->val;
+                        lvalue->lvalue = 1;
+                        do_assign(lvalue, eptr->expr);
+                    }
                     /* set symbol type */
                     iptr->sym->type = type;
-                } else {
+                } else {                
                     /* enter section */
-                    if (expr_list) {
-                        emit_section(STORE_DATA);
-                    } else {
-                        emit_section(STORE_BSS);
-                    }
+                    emit_section(loc->specifier);
                     
                     /* local? */
                     if (local) {

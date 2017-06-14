@@ -27,13 +27,13 @@ type_t *parse_type() {
         type->complete = 1;
         type->subcount = 0;
         type->subtype = NULL;
-    } else if (!strcmp(lex.val, "quad")) {
+    } else if (!strcmp(lex.val, "four")) {
         /* word type */
         type->specifier = TYPE_WORD;
         type->complete = 1;
         type->subcount = 0;
         type->subtype = NULL;
-    } else if (!strcmp(lex.val, "octt")) {
+    } else if (!strcmp(lex.val, "eigh")) {
         /* dobl type */
         type->specifier = TYPE_DOBL;
         type->complete = 1;

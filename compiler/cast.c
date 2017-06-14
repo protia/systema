@@ -29,11 +29,17 @@ expr_t *type_cast(expr_t *before, type_t *new_type) {
             ((to>=TYPE_BYTE && to<=TYPE_DOBL) || to==TYPE_PTR)) {
             /* integer/ptr to integer/ptr casting */
             emit_load(before, reg);
-            emit_sign_extend(before->type, after->type, reg);
+            /* extend */
+            if (get_unsignedf()) {
+                emit_extend_unsigned(before->type, after->type, reg);
+            } else {
+                emit_extend_signed(before->type, after->type, reg);
+            }
+            /* store the casted value */
             emit_store(reg, after);
         } else {
             print_err("unsupported types for casting", 0);
-        }      
+        }
     }
     return after;
 }

@@ -36,7 +36,7 @@ void push_recursively(expr_list_t *expr_list, int cur_arg) {
                 longtype = alloc_type();
                 longtype->specifier = TYPE_DOBL;
                 longtype->complete = 1;
-                emit_sign_extend(expr->type, longtype, reg);
+                emit_extend_signed(expr->type, longtype, reg); /* FIXME */
             }
             emit_pusharg(type_size(type), reg, cur_arg);
         } else {
@@ -44,7 +44,6 @@ void push_recursively(expr_list_t *expr_list, int cur_arg) {
             print_err("passing of arrays/records is not supported", 0);
         }
     }
-    
 }
 
 void pop_recursively(expr_list_t *expr_list, int cur_arg) {

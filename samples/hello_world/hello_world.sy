@@ -1,10 +1,11 @@
-#define FFF 12
 
 dec printf: func (fmt: @[byte], ...) returns byte;
 dec fact  : func (num:   byte);
 
-sub fact(num: quad) returns quad
-    def f as quad;
+def abc as four := 5;
+
+sub fact(num: four) returns four
+    def f as four;
 begin
     if num == 1 then
         f := 1;
@@ -14,14 +15,11 @@ begin
     return f;
 end;
 
-sub main(argc: quad, argv: @[@[byte]]) returns byte
-    def x as quad;
-    def y as quad;
+sub main(argc: four, argv: @[@[byte]]) returns byte
+    def x  as four := 1;
+    def y  as eigh := 1;
+    def ax as twin in register("%di") := 3;
 begin
-    x := 0;
-    y := 2;
-    printf("Hello world! %d\n", 1 or 0);
-    printf("Hello world! %p\n", &argv);
-    printf("Hello world! %p\n", &argv@);
+    printf("Hello world! %x\n", unsigned(x>>2));
     return 0;
 end;

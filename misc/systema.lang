@@ -128,7 +128,7 @@
       <start>L?"</start>
       <end>"</end>
       <include>
-        <context ref="printf"/>
+        <!-- <context ref="printf"/> -->
         <context id="escaped-character" style-ref="escaped-character">
           <match>\%{escaped-character}</match>
         </context>
@@ -197,6 +197,7 @@
       <keyword>typ</keyword>
       <keyword>sub</keyword>
       <keyword>local</keyword>
+      <keyword>in</keyword>
       <keyword>as</keyword>
       <keyword>returns</keyword>
       <keyword>begin</keyword>
@@ -235,9 +236,8 @@
       <keyword>void</keyword>
       <keyword>byte</keyword>
       <keyword>twin</keyword>
-      <keyword>quad</keyword>
-      <keyword>octt</keyword>
-      <keyword>register</keyword>
+      <keyword>four</keyword>
+      <keyword>eigh</keyword>
       <keyword>func</keyword>
       <keyword>text</keyword>
       <keyword>record</keyword>
@@ -248,6 +248,8 @@
       <keyword>rodata</keyword>
       <keyword>data</keyword>
       <keyword>bss</keyword>
+      <keyword>stack</keyword>
+      <keyword>register</keyword>
     </context>
 
     <context id="boolean" style-ref="boolean">

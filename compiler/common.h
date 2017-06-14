@@ -19,6 +19,7 @@
 #define STORE_DATA   2
 #define STORE_BSS    3
 #define STORE_STACK  4
+#define STORE_REG    5
 
 /* lexeme types */
 #define LEX_KEYWORD       0
@@ -79,6 +80,12 @@ typedef struct expr {
     long long  long_literal_val;
 } expr_t;
 
+typedef struct loc {
+    int   specifier;
+    char *reg_name;
+    int   reg_size;
+} loc_t;
+
 typedef struct expr_list {
     int               count;
     expr_t           *expr;
@@ -126,6 +133,7 @@ void unget_lexeme();
 /* arch.c */
 void arch_sp_fmt(char *str, int offset);
 int arch_get_reg(int usage, int indx);
+int arch_get_reg_size(char *reg_name);
 void arch_func_entry();
 void arch_func_leave();
 void arch_jmp(char *lbl);
@@ -234,6 +242,22 @@ void arch_bleb(int reg1, int reg2, char *lbl);
 void arch_bleh(int reg1, int reg2, char *lbl);
 void arch_blew(int reg1, int reg2, char *lbl);
 void arch_blel(int reg1, int reg2, char *lbl);
+void arch_bgtb_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgth_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgtw_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgtl_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgeb_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgeh_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgew_unsigned(int reg1, int reg2, char *lbl);
+void arch_bgel_unsigned(int reg1, int reg2, char *lbl);
+void arch_bltb_unsigned(int reg1, int reg2, char *lbl);
+void arch_blth_unsigned(int reg1, int reg2, char *lbl);
+void arch_bltw_unsigned(int reg1, int reg2, char *lbl);
+void arch_bltl_unsigned(int reg1, int reg2, char *lbl);
+void arch_bleb_unsigned(int reg1, int reg2, char *lbl);
+void arch_bleh_unsigned(int reg1, int reg2, char *lbl);
+void arch_blew_unsigned(int reg1, int reg2, char *lbl);
+void arch_blel_unsigned(int reg1, int reg2, char *lbl);
 void arch_bzeb(int reg, char *lbl);
 void arch_bzeh(int reg, char *lbl);
 void arch_bzew(int reg, char *lbl);
@@ -273,6 +297,7 @@ int get_scope();
 type_t *alloc_type();
 sym_t *alloc_sym();
 expr_t *alloc_expr();
+loc_t *alloc_loc();
 expr_list_t *alloc_expr_list();
 id_list_t *alloc_id_list();
 param_list_t *alloc_param_list();
@@ -291,10 +316,12 @@ void emit_func_entry();
 void emit_func_leave();
 void emit_jmp(char *lbl);
 int emit_get_reg(int usage, int indx);
+int emit_get_reg_size(char *reg_name);
 void emit_load(expr_t *expr, int reg);
 void emit_loadaddr(expr_t *expr, int reg);
 void emit_store(int reg, expr_t *expr);
-void emit_sign_extend(type_t *src_type, type_t *dest_type, int reg);
+void emit_extend_signed(type_t *src_type, type_t *dest_type, int reg);
+void emit_extend_unsigned(type_t *src_type, type_t *dest_type, int reg);
 void emit_add(type_t *type, int src_reg, int dest_reg);
 void emit_sub(type_t *type, int src_reg, int dest_reg);
 void emit_mul(type_t *type, int src_reg, int dest_reg);
@@ -313,6 +340,10 @@ void emit_bgt(type_t *type, int reg1, int reg2, char *lbl);
 void emit_bge(type_t *type, int reg1, int reg2, char *lbl);
 void emit_blt(type_t *type, int reg1, int reg2, char *lbl);
 void emit_ble(type_t *type, int reg1, int reg2, char *lbl);
+void emit_bgt_unsigned(type_t *type, int reg1, int reg2, char *lbl);
+void emit_bge_unsigned(type_t *type, int reg1, int reg2, char *lbl);
+void emit_blt_unsigned(type_t *type, int reg1, int reg2, char *lbl);
+void emit_ble_unsigned(type_t *type, int reg1, int reg2, char *lbl);
 void emit_bze(type_t *type, int reg, char *lbl);
 void emit_bnz(type_t *type, int reg, char *lbl);
 void emit_adjust_stack(int stack_size);
@@ -328,6 +359,11 @@ void emit_use_m4_macro(char *macro_name);
 sym_t *get_sym(char *name);
 sym_t *add_sym(char *name, type_t *type);
 void del_syms();
+
+/* unsigned.c */
+int set_unsignedf(int newval);
+void reset_unsignedf(int oldval);
+int get_unsignedf();
 
 /* size.c */
 int type_size(type_t *type);

@@ -75,7 +75,9 @@ expr_t *parse_str_literal() {
 }
 
 expr_t *parse_factor() {
-    /* factor: parent | identifier | int_literal | str_literal | func */
+    int unsignedf;
+    /* factor: parent | unsigned | identifier |
+               int_literal | str_literal */
     expr_t *expr;
     /* look ahead */
     get_lexeme();
@@ -84,6 +86,12 @@ expr_t *parse_factor() {
     if (!strcmp(lex.val, "(")) {
         /* parenthesis */
         expr = parse_parent();
+    } else if (!strcmp(lex.val, "unsigned")) {
+        /* unsigned expression */
+        unsignedf = set_unsignedf(1);
+        get_lexeme(); /* unsigned */
+        expr = parse_expr();
+        reset_unsignedf(unsignedf);
     } else if (lex.type == LEX_IDENTIFIER) {
         /* encountered identifier */
         unget_lexeme();

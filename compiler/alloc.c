@@ -34,6 +34,14 @@ expr_t *alloc_expr() {
     return expr;
 }
 
+loc_t *alloc_loc() {
+    loc_t *loc     = malloc(sizeof(loc_t));
+    loc->specifier = 0;
+    loc->reg_name  = "__INITREG__";
+    loc->reg_size  = 0;
+    return loc;
+}
+
 expr_list_t *alloc_expr_list() {
     expr_list_t *expr_list  = malloc(sizeof(expr_list_t));
     expr_list->count   = 0;

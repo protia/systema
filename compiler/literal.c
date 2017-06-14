@@ -20,93 +20,63 @@
 #define OP1W   op1->word_literal_val
 #define OP1D   op1->long_literal_val
 
+#define OP1BU  ((unsigned) op1->byte_literal_val)
+#define OP1HU  ((unsigned) op1->half_literal_val)
+#define OP1WU  ((unsigned) op1->word_literal_val)
+#define OP1DU  ((unsigned) op1->long_literal_val)
+
 #define OP2B   op2->byte_literal_val
 #define OP2H   op2->half_literal_val
 #define OP2W   op2->word_literal_val
 #define OP2D   op2->long_literal_val
 
+#define OP2BU  ((unsigned) op2->byte_literal_val)
+#define OP2HU  ((unsigned) op2->half_literal_val)
+#define OP2WU  ((unsigned) op2->word_literal_val)
+#define OP2DU  ((unsigned) op2->long_literal_val)
+
 void literal_type_cast(expr_t *before, expr_t *after) {
     /* get types */
     int from = before->type->specifier;
     int to  = after->type->specifier;
-    /* perform casting */
-    if (from == TYPE_BYTE && to == TYPE_BYTE) {
-        /* byte to byte casting */
-        after->byte_literal_val = before->byte_literal_val;
-    } else if (from == TYPE_BYTE && to == TYPE_HALF) {
-        /* byte to half casting */
-        after->half_literal_val = before->byte_literal_val;
-    } else if (from == TYPE_BYTE && to == TYPE_WORD) {
-        /* byte to word casting */
-        after->word_literal_val = before->byte_literal_val;
-    } else if (from == TYPE_BYTE && to == TYPE_DOBL) {
-        /* byte to long casting */
-        after->long_literal_val = before->byte_literal_val;
-    } else if (from == TYPE_BYTE && to == TYPE_PTR) {
-        /* byte to ptr casting */
-        after->long_literal_val = before->byte_literal_val;
-    } else if (from == TYPE_HALF && to == TYPE_BYTE) {
-        /* half to byte casting */
-        after->byte_literal_val = before->half_literal_val;
-    } else if (from == TYPE_HALF && to == TYPE_HALF) {
-        /* half to half casting */
-        after->half_literal_val = before->half_literal_val;
-    } else if (from == TYPE_HALF && to == TYPE_WORD) {
-        /* half to word casting */
-        after->word_literal_val = before->half_literal_val;
-    } else if (from == TYPE_HALF && to == TYPE_DOBL) {
-        /* half to long casting */
-        after->long_literal_val = before->half_literal_val;
-    } else if (from == TYPE_HALF && to == TYPE_PTR) {
-        /* half to ptr casting */
-        after->long_literal_val = before->half_literal_val;
-    } else if (from == TYPE_WORD && to == TYPE_BYTE) {
-        /* word to byte casting */
-        after->byte_literal_val = before->word_literal_val;
-    } else if (from == TYPE_WORD && to == TYPE_HALF) {
-        /* word to half casting */
-        after->half_literal_val = before->word_literal_val;
-    } else if (from == TYPE_WORD && to == TYPE_WORD) {
-        /* word to word casting */
-        after->word_literal_val = before->word_literal_val;
-    } else if (from == TYPE_WORD && to == TYPE_DOBL) {
-        /* word to dobl casting */
-        after->long_literal_val = before->word_literal_val;
-    } else if (from == TYPE_WORD && to == TYPE_PTR) {
-        /* word to ptr casting */
-        after->long_literal_val = before->word_literal_val;
-    } else if (from == TYPE_DOBL && to == TYPE_BYTE) {
-        /* long to byte casting */
-        after->byte_literal_val = before->long_literal_val;
-    } else if (from == TYPE_DOBL && to == TYPE_HALF) {
-        /* long to half casting */
-        after->half_literal_val = before->long_literal_val;
-    } else if (from == TYPE_DOBL && to == TYPE_WORD) {
-        /* long to word casting */
-        after->word_literal_val = before->long_literal_val;
-    } else if (from == TYPE_DOBL && to == TYPE_DOBL) {
-        /* long to dobl casting */
-        after->long_literal_val = before->long_literal_val;
-    } else if (from == TYPE_DOBL && to == TYPE_PTR) {
-        /* long to ptr casting */
-        after->long_literal_val = before->long_literal_val;
-    } else if (from == TYPE_PTR  && to == TYPE_BYTE) {
-        /* ptr to byte casting */
-        after->byte_literal_val = before->long_literal_val;
-    } else if (from == TYPE_PTR  && to == TYPE_HALF) {
-        /* ptr to half casting */
-        after->half_literal_val = before->long_literal_val;
-    } else if (from == TYPE_PTR  && to == TYPE_WORD) {
-        /* ptr to word casting */
-        after->word_literal_val = before->long_literal_val;
-    } else if (from == TYPE_PTR  && to == TYPE_DOBL) {
-        /* ptr to dobl casting */
-        after->long_literal_val = before->long_literal_val;
-    } else if (from == TYPE_PTR  && to == TYPE_PTR) {
-        /* ptr to ptr casting */
-        after->long_literal_val = before->long_literal_val;
+    long long holder; /* temporary holder */
+    /* check types */
+    if (((from < TYPE_BYTE || from > TYPE_DOBL) && from != TYPE_PTR) ||
+        ((to   < TYPE_BYTE || to   > TYPE_DOBL) && to   != TYPE_PTR)) {
+        print_err("unsupported types for literal casting\n", 0);
     } else {
-        print_err("unsupported types for casting\n", 0);
+        /* move from 'before' into 'holder' */
+        if (get_unsignedf()) {
+            if (from == TYPE_BYTE) {
+                holder = (unsigned char) before->byte_literal_val;
+            } else if (from == TYPE_HALF) {
+                holder = (unsigned short) before->half_literal_val;
+            } else if (from == TYPE_WORD) {
+                holder = (unsigned int) before->word_literal_val;
+            } else {
+                holder = (unsigned long long) before->long_literal_val;
+            }
+        } else {
+            if (from == TYPE_BYTE) {
+                holder = before->byte_literal_val;
+            } else if (from == TYPE_HALF) {
+                holder = before->half_literal_val;
+            } else if (from == TYPE_WORD) {
+                holder = before->word_literal_val;
+            } else {
+                holder = before->long_literal_val;
+            }
+        }
+        /* move from 'holder' into 'after' */
+        if (to == TYPE_BYTE) {
+            after->byte_literal_val = holder;
+        } else if (to == TYPE_HALF) {
+            after->half_literal_val = holder;
+        } else if (to == TYPE_WORD) {
+            after->word_literal_val = holder;
+        } else {
+            after->long_literal_val = holder;
+        }
     }
 }
 
@@ -196,36 +166,76 @@ void literal_do_binary(expr_t *expr, expr_t *op1, char *op, expr_t *op2) {
             case TYPE_PTR:  RESD = OP1D != OP2D; break;
         }
     } else if (!strcmp(op, ">")) {
-        switch(op1->type->specifier) {
-            case TYPE_BYTE: RESB = OP1B > OP2B; break;
-            case TYPE_HALF: RESH = OP1H > OP2H; break;
-            case TYPE_WORD: RESW = OP1W > OP2W; break;
-            case TYPE_DOBL: RESD = OP1D > OP2D; break;
-            case TYPE_PTR:  RESD = OP1D > OP2D; break;
+        if (get_unsignedf()) {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1BU > OP2BU; break;
+                case TYPE_HALF: RESH = OP1HU > OP2HU; break;
+                case TYPE_WORD: RESW = OP1WU > OP2WU; break;
+                case TYPE_DOBL: RESD = OP1DU > OP2DU; break;
+                case TYPE_PTR:  RESD = OP1DU > OP2DU; break;
+            }
+        } else {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1B > OP2B; break;
+                case TYPE_HALF: RESH = OP1H > OP2H; break;
+                case TYPE_WORD: RESW = OP1W > OP2W; break;
+                case TYPE_DOBL: RESD = OP1D > OP2D; break;
+                case TYPE_PTR:  RESD = OP1D > OP2D; break;
+            }
         }
     } else if (!strcmp(op, ">=")) {
-        switch(op1->type->specifier) {
-            case TYPE_BYTE: RESB = OP1B >= OP2B; break;
-            case TYPE_HALF: RESH = OP1H >= OP2H; break;
-            case TYPE_WORD: RESW = OP1W >= OP2W; break;
-            case TYPE_DOBL: RESD = OP1D >= OP2D; break;
-            case TYPE_PTR:  RESD = OP1D >= OP2D; break;
+        if (get_unsignedf()) {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1BU >= OP2BU; break;
+                case TYPE_HALF: RESH = OP1HU >= OP2HU; break;
+                case TYPE_WORD: RESW = OP1WU >= OP2WU; break;
+                case TYPE_DOBL: RESD = OP1DU >= OP2DU; break;
+                case TYPE_PTR:  RESD = OP1DU >= OP2DU; break;
+            }
+        } else {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1B >= OP2B; break;
+                case TYPE_HALF: RESH = OP1H >= OP2H; break;
+                case TYPE_WORD: RESW = OP1W >= OP2W; break;
+                case TYPE_DOBL: RESD = OP1D >= OP2D; break;
+                case TYPE_PTR:  RESD = OP1D >= OP2D; break;
+            }
         }
     } else if (!strcmp(op, "<")) {
-        switch(op1->type->specifier) {
-            case TYPE_BYTE: RESB = OP1B < OP2B; break;
-            case TYPE_HALF: RESH = OP1H < OP2H; break;
-            case TYPE_WORD: RESW = OP1W < OP2W; break;
-            case TYPE_DOBL: RESD = OP1D < OP2D; break;
-            case TYPE_PTR:  RESD = OP1D < OP2D; break;
+        if (get_unsignedf()) {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1BU < OP2BU; break;
+                case TYPE_HALF: RESH = OP1HU < OP2HU; break;
+                case TYPE_WORD: RESW = OP1WU < OP2WU; break;
+                case TYPE_DOBL: RESD = OP1DU < OP2DU; break;
+                case TYPE_PTR:  RESD = OP1DU < OP2DU; break;
+            }
+        } else {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1B < OP2B; break;
+                case TYPE_HALF: RESH = OP1H < OP2H; break;
+                case TYPE_WORD: RESW = OP1W < OP2W; break;
+                case TYPE_DOBL: RESD = OP1D < OP2D; break;
+                case TYPE_PTR:  RESD = OP1D < OP2D; break;
+            }
         }
     } else if (!strcmp(op, "<=")) {
-        switch(op1->type->specifier) {
-            case TYPE_BYTE: RESB = OP1B <= OP2B; break;
-            case TYPE_HALF: RESH = OP1H <= OP2H; break;
-            case TYPE_WORD: RESW = OP1W <= OP2W; break;
-            case TYPE_DOBL: RESD = OP1D <= OP2D; break;
-            case TYPE_PTR:  RESD = OP1D <= OP2D; break;
+        if (get_unsignedf()) {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1BU <= OP2BU; break;
+                case TYPE_HALF: RESH = OP1HU <= OP2HU; break;
+                case TYPE_WORD: RESW = OP1WU <= OP2WU; break;
+                case TYPE_DOBL: RESD = OP1DU <= OP2DU; break;
+                case TYPE_PTR:  RESD = OP1DU <= OP2DU; break;
+            }
+        } else {
+            switch(op1->type->specifier) {
+                case TYPE_BYTE: RESB = OP1B <= OP2B; break;
+                case TYPE_HALF: RESH = OP1H <= OP2H; break;
+                case TYPE_WORD: RESW = OP1W <= OP2W; break;
+                case TYPE_DOBL: RESD = OP1D <= OP2D; break;
+                case TYPE_PTR:  RESD = OP1D <= OP2D; break;
+            }
         }
     } else if (!strcmp(op, "|")) {
         switch(op1->type->specifier) {
