@@ -1,16 +1,25 @@
-SYC=../../compiler/syc
+SYSP=../../compiler/sysp
+SYSC=../../compiler/sysc
+SYSA=../../compiler/sysa
+SYSL=../../compiler/sysl
 
 SNAME=hello_world
-SRC=$(SNAME).sy
-OBJ=$(SNAME)
+SRC=$(SNAME).m
+INT=$(SNAME).i
+ASM=$(SNAME).s
+OBJ=$(SNAME).o
+BIN=$(SNAME)
 
-all-local: $(OBJ)
+all-local: $(BIN)
 
-$(OBJ): $(SRC) $(SYC)
-	$(SYC) -o $@ $<
+$(BIN): $(SRC) $(SYSP) $(SYSC) $(SYSA) $(SYSL)
+	$(SYSP) -o $(INT) $<
+	$(SYSC) -o $(ASM) $(INT)
+	$(SYSA) -o $(OBJ) $(ASM)
+	$(SYSL) -o $(BIN) $(OBJ)
 
-run: $(OBJ)
-	./$(OBJ) arg1 arg2 arg3
+run: $(BIN)
+	./$(BIN) arg1 arg2 arg3
 
 clean-local:
-	rm -f $(OBJ) *.i *.s *.o
+	rm -f $(BIN) *.i *.s *.o

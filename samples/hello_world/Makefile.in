@@ -204,10 +204,16 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SYC = ../../compiler/syc
+SYSP = ../../compiler/sysp
+SYSC = ../../compiler/sysc
+SYSA = ../../compiler/sysa
+SYSL = ../../compiler/sysl
 SNAME = hello_world
-SRC = $(SNAME).sy
-OBJ = $(SNAME)
+SRC = $(SNAME).m
+INT = $(SNAME).i
+ASM = $(SNAME).s
+OBJ = $(SNAME).o
+BIN = $(SNAME)
 all: all-am
 
 .SUFFIXES:
@@ -394,16 +400,19 @@ uninstall-am:
 .PRECIOUS: Makefile
 
 
-all-local: $(OBJ)
+all-local: $(BIN)
 
-$(OBJ): $(SRC) $(SYC)
-	$(SYC) -o $@ $<
+$(BIN): $(SRC) $(SYSP) $(SYSC) $(SYSA) $(SYSL)
+	$(SYSP) -o $(INT) $<
+	$(SYSC) -o $(ASM) $(INT)
+	$(SYSA) -o $(OBJ) $(ASM)
+	$(SYSL) -o $(BIN) $(OBJ)
 
-run: $(OBJ)
-	./$(OBJ) arg1 arg2 arg3
+run: $(BIN)
+	./$(BIN) arg1 arg2 arg3
 
 clean-local:
-	rm -f $(OBJ) *.i *.s *.o
+	rm -f $(BIN) *.i *.s *.o
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
