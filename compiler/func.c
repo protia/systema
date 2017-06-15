@@ -78,8 +78,6 @@ expr_t *parse_func_call(expr_t *func) {
     param_list_t *param_list = func->type->param_list;
     expr_list_t *expr_list, *top;
     int reg = emit_get_reg(REG_ACC, 0);
-    /* adjust stack frame ptr */
-    emit_adjust_stack(get_stack_size());
     /* read ( */
     get_lexeme();
     /* read par list */
@@ -260,10 +258,17 @@ void parse_func(sym_t *sym) {
     expr_t *expr;
     type_t *type;
     param_list_t *param_list;
+    char *stack_sym;
+
+    /* determine stack symbol */
+    stack_sym = malloc(strlen(sym->name)+20);
+    strcpy(stack_sym, ".");
+    strcat(stack_sym, sym->name);
+    strcat(stack_sym, ".frame");
 
     /* function entry point assembly code */
     emit_comment("FUNCTION ENTRY");
-    emit_func_entry();
+    emit_func_entry(stack_sym);
 
     /* enter a new scope level */
     enter_scope();
@@ -368,6 +373,7 @@ void parse_func(sym_t *sym) {
     /* function termination */
     emit_comment("FUNCTION EXIT");
     emit_func_leave();
+    emit_set(stack_sym, get_stack_size());
 
     /* delete symbols of current scope */
     del_syms();

@@ -6,22 +6,23 @@ def abc as four := 5;
 
 sub fact(num: four) returns four
     def f as four;
+    def i as four;
 begin
-    if num == 1 then
-        f := 1;
-    elsif num == 0 then
-        f := 1;
-    endif;
+    for i from 10 down to 1 step -2 do
+        printf("%d\n", i);
+    loop;
     return f;
 end;
 
 sub main(argc: four, argv: @[@[byte]]) returns byte
-    def x  as four := 1;
+    def i  as four;
     def y  as eigh := 1;
     def ax as twin in register("%di") := 3;
 begin
-    printf("Hello world! %x\n", unsigned(x>>2));
-    printf("Hello world! %d\n", unsigned(x>>2));
-    printf("Hello world! %x\n", unsigned(x>>2));
+    i := 0;
+    while i < argc do
+        printf("arg %d: %s\n", i, argv@[i]);
+        i++;
+    loop;
     return 0;
 end;

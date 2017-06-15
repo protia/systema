@@ -71,12 +71,16 @@ void emit_space(int space) {
     fprintf(emit_fd, "\t.space %d\n", space);
 }
 
-void emit_func_entry() {
-    arch_func_entry();
+void emit_func_entry(char *stack_sym) {
+    arch_func_entry(stack_sym);
 }
 
 void emit_func_leave() {
     arch_func_leave();
+}
+
+void emit_set(char *sym, int val) {
+    fprintf(emit_fd, "\t.set   %s, %d\n", sym, val);
 }
 
 void emit_jmp(char *lbl) {

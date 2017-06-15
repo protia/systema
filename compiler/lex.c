@@ -107,6 +107,7 @@ char *keywords[] = {
     "esac",
     "for",
     "from",
+    "down",
     "to",
     "step",
     "do",

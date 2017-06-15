@@ -236,9 +236,10 @@ int arch_get_reg_size(char *reg_name) {
     return regs[i].size;
 }
 
-void arch_func_entry() {
+void arch_func_entry(char *stack_sym) {
     fprintf(emit_fd, "\tpushq  %%rbp\n");
     fprintf(emit_fd, "\tmovq   %%rsp, %%rbp\n");
+    fprintf(emit_fd, "\tlea    -%s(%%rbp), %%rsp\n", stack_sym);
 }
 
 void arch_func_leave() {
