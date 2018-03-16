@@ -1,4 +1,3 @@
-/* allocation for labels and stack addresses */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,3 +29,4 @@ char *get_new_label() {
     itoa(&ret[2], last_label++);
     return ret;
 }
+

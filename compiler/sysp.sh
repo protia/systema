@@ -14,3 +14,4 @@ fi;
 
 # preprocess
 m4 $INFILE > $OUTFILE
+

@@ -16,3 +16,4 @@ fi;
 
 # compile
 $SYSC_CORE $INFILE $OUTFILE
+

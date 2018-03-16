@@ -1,6 +1,7 @@
-
-dec printf: func (fmt: @[byte], ...) returns byte;
-dec fact  : func (num:   byte);
+dec printf: func (fmt:  text, ...) returns byte;
+dec malloc: func (size: four) returns @void;
+dec strcpy: func (dest: text, src: text) returns text;
+dec fact  : func (num:  byte);
 
 def abc as four := 5;
 
@@ -14,7 +15,7 @@ begin
     return f;
 end;
 
-sub main(argc: four, argv: @[@[byte]]) returns byte
+sub main(argc: four, argv: @[text]) returns byte
     def i  as four;
     def y  as eigh := 1;
     def ax as twin in register("%di") := 3;
@@ -26,3 +27,4 @@ begin
     loop;
     return 0;
 end;
+

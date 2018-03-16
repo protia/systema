@@ -11,3 +11,4 @@ void parse_file() {
     /* flush all strings */
     str_literal_flush();
 }
+

@@ -38,11 +38,10 @@
 #define TYPE_WORD    3
 #define TYPE_DOBL    4
 #define TYPE_FUNC    5
-#define TYPE_STRING  6
-#define TYPE_RECORD  7
-#define TYPE_PTR     8
-#define TYPE_ARRAY   9
-#define TYPE_TYPEOF  10
+#define TYPE_RECORD  6
+#define TYPE_PTR     7
+#define TYPE_ARRAY   8
+#define TYPE_TYPEOF  9
 
 typedef struct lexeme {
     char val[1024];
@@ -435,3 +434,4 @@ void parse_dim_list();
 void parse_file();
 
 #endif /* __COMMON_H */
+

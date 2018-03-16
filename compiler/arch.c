@@ -1216,3 +1216,4 @@ void arch_call_indir(char *func_addr) {
 void arch_nop() {
     fprintf(emit_fd, "\tnop\n");
 }
+

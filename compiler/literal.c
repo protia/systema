@@ -1,4 +1,3 @@
-/* special handling for literals */
 #include <string.h>
 
 #include "common.h"
@@ -8,7 +7,6 @@
  * pointer literal
  * text literal
  */
-
 
 #define RESB   expr->byte_literal_val
 #define RESH   expr->half_literal_val

@@ -13,3 +13,4 @@ void leave_scope() {
 int get_scope() {
     return scope;
 }
+

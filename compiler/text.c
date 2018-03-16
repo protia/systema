@@ -48,3 +48,4 @@ void str_literal_flush() {
         emit_string(str->str_literal);
     }
 }
+

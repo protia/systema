@@ -1,5 +1,3 @@
-/* calculate type size, used by func, dim, and sizeof */
-
 #include "common.h"
 
 int type_size(type_t *type) {
@@ -18,9 +16,9 @@ int type_size(type_t *type) {
         size = type->subcount * type_size(type->subtype);
     } else if (type->specifier == TYPE_PTR) {
         size = 8;
-    } else if (type->specifier == TYPE_STRING) {
-        /* text is a pointer */
-        size = 8;
+    } else {
+        print_err("bug in size.c: cannot get size for that type.", 0);
     }
     return size;
 }
+

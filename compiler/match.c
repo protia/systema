@@ -27,12 +27,10 @@ int type_match(type_t *type1, type_t *type2, int strict) {
         } else {
             ret = type_match(type1->subtype, type2->subtype, 0);
         }
-   } else if (type1->specifier == TYPE_STRING &&
-              type2->specifier == TYPE_STRING) {
-        return 1;
    } else {
         /* type checking fails */
         ret = 0;
    }
    return ret;
 }
+

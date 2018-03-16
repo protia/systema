@@ -1,4 +1,3 @@
-/* operation code generation */
 #include <string.h>
 
 #include "common.h"
@@ -178,7 +177,7 @@ expr_t *do_unary(expr_t *expr, char *op, int post) {
             emit_load(expr, reg);
             emit_store(reg, tmp);
             /* set tmp type to that of pointed expr and mark indirect */
-            tmp->type = tmp->type->subtype;
+            tmp->type   = tmp->type->subtype;
             tmp->indir  = 1;
             tmp->lvalue = expr->lvalue;
             /* return res */
@@ -513,3 +512,4 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
     /* done */
     return expr;
 }
+

@@ -44,10 +44,18 @@ type_t *parse_type() {
         type = parse_func_header();
     } else if (!strcmp(lex.val, "text")) {
         /* string type */
-        type->specifier = TYPE_STRING;
+        type->specifier = TYPE_PTR;
         type->complete = 1;
-        type->subcount = 0;
-        type->subtype = NULL;
+        type->subcount = 1;
+        type->subtype = alloc_type();
+        type->subtype->specifier = TYPE_ARRAY;
+        type->subtype->subcount = 0;
+        type->subtype->complete = 0;
+        type->subtype->subtype = alloc_type();
+        type->subtype->subtype->specifier = TYPE_BYTE;
+        type->subtype->subtype->complete = 1;
+        type->subtype->subtype->subcount = 0;
+        type->subtype->subtype->subtype = NULL;
     } else if (!strcmp(lex.val, "record")) {
         type->specifier = TYPE_RECORD;
         type->complete = 1;
@@ -117,3 +125,4 @@ type_t *parse_type() {
     /* finished */
     return type;
 }
+

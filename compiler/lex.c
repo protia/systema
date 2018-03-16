@@ -14,8 +14,8 @@
 #define STATE_HEX       7
 #define STATE_EOF       8
 
-int has_ungetl = 0; /* unget lexeme */
-lexeme_t lex; /* current lexeme */
+int has_ungetl = 0; /* unget lexeme   */
+lexeme_t lex;       /* current lexeme */
 int state = 0;
 
 char *ops[] = {
@@ -368,3 +368,4 @@ void get_lexeme() {
 void unget_lexeme() {
     has_ungetl = 1;
 }
+

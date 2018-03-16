@@ -27,7 +27,8 @@ AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([compiler/Makefile])
 AC_CONFIG_FILES([samples/Makefile])
-AC_CONFIG_FILES([samples/hello_world/Makefile])
+AC_CONFIG_FILES([samples/hello/Makefile])
 AC_CONFIG_FILES([doc/Makefile])
 AC_CONFIG_FILES([misc/Makefile])
 AC_OUTPUT
+

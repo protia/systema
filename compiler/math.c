@@ -1,4 +1,3 @@
-/* binary operations */
 #include <string.h>
 
 #include "common.h"
@@ -309,3 +308,4 @@ expr_t *parse_bitwise_or() {
     /* done */
     return expr;
 }
+

@@ -1,4 +1,3 @@
-
 #include "common.h"
 
 expr_t *type_cast(expr_t *before, type_t *new_type) {
@@ -43,3 +42,4 @@ expr_t *type_cast(expr_t *before, type_t *new_type) {
     }
     return after;
 }
+

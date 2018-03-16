@@ -2,8 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* low-level I/O with systema file */
-
 #define MAX_BUF  4096
 
 char cur_line[MAX_BUF] = "";
@@ -100,3 +98,4 @@ void unread_char() {
     }
     has_ungetc = 1;
 }
+

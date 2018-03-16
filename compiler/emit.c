@@ -1,5 +1,3 @@
-/* low level emissions */
-
 #include "common.h"
 
 FILE *emit_fd;
@@ -858,3 +856,4 @@ void emit_use_m4_macro(char *macro_name) {
 void emit_nop() {
     arch_nop();
 }
+

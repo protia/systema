@@ -3,11 +3,11 @@ SYSC=../../compiler/sysc
 SYSA=../../compiler/sysa
 SYSL=../../compiler/sysl
 
-SNAME=hello_world
-SRC=$(SNAME).m
-INT=$(SNAME).i
-ASM=$(SNAME).s
-OBJ=$(SNAME).o
+SNAME=hello
+SRC=$(srcdir)/$(SNAME).sys
+INT=$(SNAME).int
+ASM=$(SNAME).asm
+OBJ=$(SNAME).obj
 BIN=$(SNAME)
 
 all-local: $(BIN)
@@ -22,4 +22,5 @@ run: $(BIN)
 	./$(BIN) arg1 arg2 arg3
 
 clean-local:
-	rm -f $(BIN) *.i *.s *.o
+	rm -f $(BIN) *.int *.asm *.obj
+

@@ -5,3 +5,4 @@ run: all
 
 clean-local:
 	rmdir --ignore-fail-on-non-empty $(SUBDIRS)
+

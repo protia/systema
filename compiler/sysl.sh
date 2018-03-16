@@ -2,8 +2,9 @@
 
 set -e
 
-GLIBC="/usr/lib/crt1.o /usr/lib/crti.o -lc /usr/lib/crtn.o"
-DYNLINKER="-dynamic-linker /lib/ld-linux-x86-64.so.2"
+LIBDIR="/usr/lib/x86_64-linux-gnu"
+GLIBC="$LIBDIR/crt1.o $LIBDIR/crti.o -lc $LIBDIR/crtn.o"
+DYNLINKER="-dynamic-linker /lib64/ld-linux-x86-64.so.2"
 
 # read arguments
 INFILE=$3
@@ -17,3 +18,4 @@ fi;
 
 # link
 ld $DYNLINKER -o $OUTFILE $INFILE $GLIBC
+

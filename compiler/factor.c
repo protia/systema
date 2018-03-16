@@ -1,5 +1,3 @@
-/* factor evaluation */
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -59,11 +57,16 @@ expr_t *parse_str_literal() {
     expr = alloc_expr();
     expr->type->specifier = TYPE_PTR;
     expr->type->complete = 1;
+    expr->type->subcount = 1;
     expr->type->subtype = alloc_type();
     expr->type->subtype->specifier = TYPE_ARRAY;
+    expr->type->subtype->subcount = 0;
+    expr->type->subtype->complete = 0;
     expr->type->subtype->subtype = alloc_type();
     expr->type->subtype->subtype->specifier = TYPE_BYTE;
     expr->type->subtype->subtype->complete = 1;
+    expr->type->subtype->subtype->subcount = 0;
+    expr->type->subtype->subtype->subtype = NULL;
     expr->literal = 1;
     expr->addr = add_str_literal(lex.val);
     return expr;
@@ -137,3 +140,4 @@ expr_t *parse_factor() {
     }
     return expr;
 }
+

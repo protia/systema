@@ -1,4 +1,3 @@
-/* assignment operation */
 #include <string.h>
 
 #include "common.h"
@@ -42,3 +41,4 @@ expr_t *parse_assign() {
     /* done */
     return expr;
 }
+

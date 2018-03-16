@@ -36,3 +36,4 @@ void del_syms() {
         head = head->next;
     }
 }
+
