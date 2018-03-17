@@ -198,9 +198,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
     expr_t *op_ptr, *op_incr, *subtype_size;
     expr_t *ptr_as_long, *add_val;
     type_t *type;
+    param_list_t *cur;
     char *lbl1, *lbl2, *lbl3;
     int reg1 = emit_get_reg(REG_ACC, 0);
     int reg2 = emit_get_reg(REG_ACC, 1);
+    int offset = 0, found = 0;
     /* container for the result */
     expr = alloc_expr();
     /* literal 0 */
@@ -222,7 +224,7 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             if (op2->type->specifier >= TYPE_BYTE &&
                 op2->type->specifier <= TYPE_DOBL) {
                 /* load the address of the first element in the 
-                 * array to a pointer to array type
+                 * array to a pointer to array's subtype
                  * then perform pointer arithmetic
                  * ex: to evaluate arr[i]
                  *        let p pointer = &arr[0]
@@ -258,6 +260,72 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             expr = op1;
         }
         
+    } else if (!strcmp(op, ".")) {
+
+        /* record member resolution */
+        if (op1->type->specifier == TYPE_RECORD) {
+            /* op2 must be a member of the record */
+            offset = 0;
+            found = 0;
+            cur = op1->type->param_list;
+            while(cur->type) {
+                if (!strcmp(cur->name, op2->addr)) {
+                    found = 1;
+                    break;
+                }
+                offset += type_size(cur->type);
+                cur = cur->sublist;
+            }
+            /* found? */
+            if (found) {
+                /* load the address of the record to 
+                 * to a pointer of type @byte,
+                 * then perform pointer arithmetic
+                 * ex: to evaluate record member
+                 *        let p pointer = &arr[0]
+                 *            p += member_offset
+                 *            return *p as indirect lvalue var 
+                 */
+                expr = alloc_expr();
+                expr->type->specifier = TYPE_PTR;
+                expr->type->complete = 1;
+                expr->type->subtype = alloc_type();
+                expr->type->subtype->specifier = TYPE_BYTE;
+                expr->type->subtype->complete = 1;
+                expr->type->subtype->subcount = 0;
+                expr->type->subtype->subtype = NULL;
+                /* p = &arr[0] */
+                if (!op1->indir) {
+                    expr->addr = get_new_addr(type_size(expr->type));
+                    emit_loadaddr(op1, reg1);
+                    emit_store(reg1, expr);
+                } else {
+                    expr->addr = op1->addr;
+                }
+                /* store offset in op2 */
+                op2->literal = 1;
+                op2->type = alloc_type();
+                op2->type->specifier = TYPE_WORD;
+                op2->type->complete = 1;
+                op2->type->subcount = 0;
+                op2->type->subtype = NULL;
+                op2->word_literal_val = offset;
+                /* p += i */
+                expr = do_binary(expr, "+", op2);
+                /* now expr holds the destined address */
+                expr->type = cur->type;
+                expr->lvalue = 1;
+                expr->indir = 1;              
+            } else {
+                print_err("cannot match record member", 0);
+                expr = op1;
+            }
+        } else {
+            /* must be applied to record type */
+            print_err(". can't be applied to a non-record type", 0);
+            expr = op1;
+        }
+
     } else if (op1->type->specifier >= TYPE_BYTE && 
                op1->type->specifier <= TYPE_DOBL &&
                op2->type->specifier >= TYPE_BYTE &&

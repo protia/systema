@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 
 #include "common.h"
 
@@ -41,6 +42,18 @@ expr_t *parse_unary_post() {
             expr = do_binary(expr, "[", expr1);
         } else if (!strcmp(lex.val, ".")) {
             /* record member */
+            get_lexeme();
+            if (lex.type != LEX_IDENTIFIER) {
+                print_err("expected identifier", NULL);
+                unget_lexeme();
+            } else {
+                /* enclose the lexeme in an expression */
+                expr1 = alloc_expr();
+                expr1->addr = malloc(strlen(lex.val)+1);
+                strcpy(expr1->addr, lex.val);
+                /* resolve record member operation */
+                expr = do_binary(expr, ".", expr1);
+            }
         } else {
             /* no more */
             unget_lexeme();

@@ -23,12 +23,9 @@ int parse_dim_keyword() {
     } else if (!strcmp(lex.val, "typ")) {
         /* type */
         dim_type = DIM_TYP;
-    } else if (!strcmp(lex.val, "sub")) {
-        /* subroutine */
-        dim_type = DIM_SUB;
     } else {
         /* expected dim keyword */
-        print_err("expected def, dec, typ, or sub keyword", 0);
+        print_err("expected def, dec, or typ keyword", 0);
         /* assume default */
         dim_type = DIM_DEF;
     }
@@ -174,11 +171,11 @@ int parse_dim_stmt() {
         err = 1;
     }
 
+    /* parse type */
+    type = parse_as_type();
+
     /* function or variable? */
-    if (dim_type != DIM_SUB) {
-    
-        /* parse type */
-        type = parse_as_type();
+    if (dim_type != DIM_DEF || type->specifier != TYPE_FUNC) {
 
         /* type must be completely specified if def */
         if (dim_type == DIM_DEF) {
@@ -186,12 +183,6 @@ int parse_dim_stmt() {
                 print_err("type must be completely specified", 0);
                 err = 1;
             }
-        }
-    
-        /* variables can't hold functions */
-        if (dim_type == DIM_DEF && type->specifier == TYPE_FUNC) {
-            print_err("variables can't hold functions", 0); 
-            err = 1;
         }
         
         /* parse location */
@@ -360,6 +351,19 @@ int parse_dim_stmt() {
 
     } else {
 
+        /* inline function are currently not supported */
+        if (get_scope() != 0) {
+            print_err("inline functions are currently not supported", 0); 
+        }
+
+        /* encounter : */
+        get_lexeme();
+        if (strcmp(lex.val, ":")) {
+            /* didn't find : */
+            print_err("expected :", NULL);
+            unget_lexeme();
+        }
+
         /* a function! */
         emit_section(STORE_CODE);
         emit_line("");
@@ -368,7 +372,7 @@ int parse_dim_stmt() {
         if (id_list->count > 1) {
             print_err("at most one identifier must be specified", 0); 
             err = 1;
-        } else {
+        } else if (id_list->count == 1) {
             /* local? */
             if (local) {
                 emit_local(id_list->sym->name);
@@ -379,10 +383,13 @@ int parse_dim_stmt() {
             /* print labels */
             emit_label(id_list->sym->name);
             
-            /* set addr of symbol to its lbl name */
+            /* set addr of symbol directly to its lbl name */
             id_list->sym->val = id_list->sym->name;
         
-            /* parse function header and body */
+            /* set type of symbol as func */
+            id_list->sym->type = type;
+
+            /* parse function body */
             parse_func(id_list->sym);
         }
         

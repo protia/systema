@@ -1,30 +1,38 @@
-dec printf: func (fmt:  text, ...) returns byte;
-dec malloc: func (size: four) returns @void;
-dec strcpy: func (dest: text, src: text) returns text;
-dec fact  : func (num:  byte);
+dec printf as func (fmt : text, ...      ) returns byte ;
+dec malloc as func (size: four           ) returns @void;
+dec strcpy as func (dest: text, src: text) returns text ;
+dec fact   as func (num : byte           )              ;
+
+typ fact_type as func(num: four) returns four;
 
 def abc as four := 5;
 
-sub fact(num: four) returns four
-    def f as four;
-    def i as four;
+def fact as fact_type:
+    def ret as four;
 begin
-    for i from 10 down to 1 step -2 do
-        printf("%d\n", i);
-    loop;
-    return f;
+    if num == 1 then
+        ret := 1;
+    else
+        ret := num*fact(num-1);
+    endif;
+    return ret;
 end;
 
-sub main(argc: four, argv: @[text]) returns byte
+def main as func (argc: four, argv: @[text]) returns byte:
     def i  as four;
     def y  as eigh := 1;
     def ax as twin in register("%di") := 3;
+    def f  as four;
 begin
+
+    printf("fact(5): %d\n", f);
+
     i := 0;
     while i < argc do
         printf("arg %d: %s\n", i, argv@[i]);
         i++;
     loop;
+
     return 0;
 end;
 

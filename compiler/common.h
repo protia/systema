@@ -11,7 +11,6 @@
 #define DIM_TYP 0
 #define DIM_DEC 1
 #define DIM_DEF 2
-#define DIM_SUB 3
     
 /* storage classes */
 #define STORE_CODE   0
@@ -392,9 +391,12 @@ void do_assign(expr_t *dest, expr_t *src);
 expr_t *do_unary(expr_t *expr, char *op, int post);
 expr_t *do_binary(expr_t *op1, char *op, expr_t *op2);
 
+/* record.c */
+void parse_record_header(type_t *type);
+
 /*func.c */
 expr_t *parse_func_call(expr_t *func);
-type_t *parse_func_header();
+void parse_func_header(type_t *type);
 void parse_func(sym_t *sym);
 
 /* type.c */

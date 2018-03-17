@@ -152,78 +152,9 @@ expr_t *parse_func_call(expr_t *func) {
     return expr;
 }
 
-type_t *parse_func_header() {
-    int done = 0;
-    int count = 0;
-    param_list_t *cur = alloc_param_list();
-    param_list_t *top = cur;
-    type_t *type;
-    /* create function type */
-    type = alloc_type();
-    type->specifier = TYPE_FUNC;
-    type->complete = 0;
-    type->subcount = 0;
-    type->subtype = NULL;
-    /* ( */
-    get_lexeme();
-    if (strcmp(lex.val, "(")) {
-        print_err("expected (", NULL);
-        unget_lexeme();
-    }    
-    /* param list */
-    get_lexeme();
-    if (strcmp(lex.val, ")")) {    
-        while (!done) {
-            /* additional parameter */
-            cur->sublist = alloc_param_list();
-            cur->type = alloc_type();
-            count++;
-            /* read identifier */
-            if (lex.type == LEX_IDENTIFIER) {
-                /* copy identifier */
-                cur->name = malloc(strlen(lex.val)+1);
-                strcpy(cur->name, lex.val);
-
-                /* read 'as' */
-                get_lexeme();
-                if (strcmp(lex.val, "as") && strcmp(lex.val, ":")) {
-                    print_err("expected 'as' or :", NULL);
-                    unget_lexeme();
-                }
-                /* read type */
-                cur->type = parse_type();
-                /* type must be complete */
-                if (!cur->type->complete) {
-                    print_err("incomplete parameter type", NULL);
-                }
-                /* read comma or ) */
-                get_lexeme();
-                if (!strcmp(lex.val, ")")) {
-                    done = 1;
-                } else if (!strcmp(lex.val, ",")) {
-                    /* additional parameters are coming */
-                    get_lexeme();
-                } else {
-                    print_err("expected , or )", NULL);
-                    unget_lexeme();
-                }
-            } else if (!strcmp(lex.val, "...")) {
-                cur->any  = 1;
-                /* next lexeme must be ) */
-                get_lexeme();
-                if (strcmp(lex.val, ")")) {
-                    print_err("expected  )", NULL);
-                    unget_lexeme();
-                }
-                done = 1;                
-            } else {
-                print_err("expected identifier or ...", NULL);
-                unget_lexeme();
-                done = 1;
-            }
-            cur = cur->sublist;
-        }
-    }
+void parse_func_header(type_t *type) {
+    /* parse function parameters as a record header */
+    parse_record_header(type);
     /* return type */
     get_lexeme();
     if (!strcmp(lex.val, "returns")) {
@@ -240,16 +171,6 @@ type_t *parse_func_header() {
     } else {
         unget_lexeme();
     }
-    /* update type */
-    type->param_list = top;
-    /* recalculate size */
-    cur = top;
-    while (count) {
-        cur->count = count--;
-        cur = cur->sublist;
-    }
-    /* done */
-    return type;
 }
 
 void parse_func(sym_t *sym) {
@@ -276,8 +197,8 @@ void parse_func(sym_t *sym) {
     /* initialize stack frame */
     init_stack_frame();
 
-    /* parse function header */
-    type = sym->type = parse_func_header();
+    /* get function header */
+    type = sym->type;
 
     /* loop over function parameters */
     emit_comment("COPY FUNCTION PARAMETERS");

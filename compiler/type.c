@@ -7,6 +7,7 @@ type_t *parse_type() {
     /* type: type_specifier type_modifiers */
     type_t *type = alloc_type();
     expr_t *expr;
+    sym_t  *sym;
     /* type specifier */
     get_lexeme();
     if (!strcmp(lex.val, "void")) {
@@ -41,7 +42,17 @@ type_t *parse_type() {
         type->subtype = NULL;
     } else if (!strcmp(lex.val, "func")) {
         /* func type */
-        type = parse_func_header();
+        type->specifier = TYPE_FUNC;
+        type->complete = 0;
+        type->subcount = 0;
+        type->subtype = NULL;
+        parse_func_header(type);
+    } else if (!strcmp(lex.val, "record")) {
+        type->specifier = TYPE_RECORD;
+        type->complete = 1;
+        type->subcount = 0;
+        type->subtype = NULL;
+        parse_record_header(type);
     } else if (!strcmp(lex.val, "text")) {
         /* string type */
         type->specifier = TYPE_PTR;
@@ -56,12 +67,6 @@ type_t *parse_type() {
         type->subtype->subtype->complete = 1;
         type->subtype->subtype->subcount = 0;
         type->subtype->subtype->subtype = NULL;
-    } else if (!strcmp(lex.val, "record")) {
-        type->specifier = TYPE_RECORD;
-        type->complete = 1;
-        type->subcount = 0;
-        type->subtype = NULL;
-        /* parse_record() */
     } else if (!strcmp(lex.val, "[")) {
         /* array */
         type->specifier = TYPE_ARRAY;
@@ -114,6 +119,18 @@ type_t *parse_type() {
         type->complete = 1;
         type->subcount = 1;
         type->subtype = parse_type();
+    } else if ((sym = get_sym(lex.val)) != NULL) {
+        /* symbol! must be of TYPEOF */
+        if (sym->type->specifier == TYPE_TYPEOF) {
+            /* just inherit the type of the symbol */
+            type = sym->type->subtype;
+        } else {
+            print_err("symbol used as a type must be declared as a type",0);
+            type->specifier = TYPE_VOID;
+            type->complete = 0;
+            type->subcount = 0;
+            type->subtype = NULL;
+        }
     } else {
         /* error? */
         type->specifier = TYPE_VOID;
