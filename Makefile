@@ -1,8 +1,12 @@
-SUBDIRS=compiler samples doc misc
 
-run: all
-	make -C samples run SAMPLE=$(SAMPLE)
+SRC_DIR=src
+BUILD_DIR=build
 
-clean-local:
-	rmdir --ignore-fail-on-non-empty $(SUBDIRS)
+# targets 
+BOOTSTRAP_CFILES=
+
+
+
+
+
 

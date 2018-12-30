@@ -1,7 +1,5 @@
 #!/bin/bash
 
-SYSC_CORE=$(dirname ${BASH_SOURCE[0]})/sysc-core
-
 set -e
 
 # read arguments
@@ -14,6 +12,6 @@ if [ $# != 3 ]; then
     exit -1;
 fi;
 
-# compile
-$SYSC_CORE $INFILE $OUTFILE
+# preprocess
+m4 $INFILE > $OUTFILE
 
