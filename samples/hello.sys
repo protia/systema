@@ -1,16 +1,23 @@
+/* ----------------------
+ *      hello world
+ * ----------------------
+ * This is an example program for systema
+ */
 
+/* declare external prinf function */
 dec printf as func (fmt : text, ...      ) returns byte ;
 
+/* main function */
 def main as func (argc: four, argv: @[text]) returns byte:
     def i  as eigh;
 begin
-
+    /* initialize loop counter */
     i := 0;
+    /* loop over arguments */
     while i < argc do
         printf("arg %d: %s\n", i, argv@[i]);
         i++;
     loop;
-
+    /* done */
     return 0;
 end;
-

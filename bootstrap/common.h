@@ -27,8 +27,9 @@
 #define LEX_STR_LITERAL   3
 #define LEX_INT_LITERAL   4
 #define LEX_OP            5
-#define LEX_EOF           6
-#define LEX_INVALID       7
+#define LEX_COMMENT       6
+#define LEX_EOF           7
+#define LEX_INVALID       8
 
 /* type specifiers */
 #define TYPE_VOID    0

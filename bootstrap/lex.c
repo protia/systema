@@ -7,12 +7,13 @@
 #define STATE_START     0
 #define STATE_CHAR      1
 #define STATE_STRING    2
-#define STATE_OP        3
-#define STATE_ALPHA     4
-#define STATE_NUM       5
-#define STATE_OCT       6
-#define STATE_HEX       7
-#define STATE_EOF       8
+#define STATE_COMMENT   3
+#define STATE_OP        4
+#define STATE_ALPHA     5
+#define STATE_NUM       6
+#define STATE_OCT       7
+#define STATE_HEX       8
+#define STATE_EOF       9
 
 int has_ungetl = 0; /* unget lexeme   */
 lexeme_t lex;       /* current lexeme */
@@ -20,16 +21,16 @@ int state = 0;
 
 char *ops[] = {
     "[",
-    "]", 
+    "]",
     "(",
-    ")", 
+    ")",
     "{",
-    "}", 
+    "}",
     ";",
     ".",
     ",",
-    "..", 
-    "...", 
+    "..",
+    "...",
     "++",
     "--",
     "&",
@@ -63,8 +64,8 @@ char *ops[] = {
     ">>=",
     "&=",
     "^=",
-    "|=" ,
-    "="
+    "|=",
+    "=",
 };
 
 char *keywords[] = {
@@ -192,6 +193,9 @@ void get_lexeme() {
                     } else if (chr == '\"') {
                         /* read string */
                         state = STATE_STRING;
+                    } else if (chr == '/') {
+                        /* comment or division */
+                        state = STATE_COMMENT;
                     } else if (isop(lex.val)) {
                         /* operator */
                         state = STATE_OP;
@@ -243,6 +247,36 @@ void get_lexeme() {
                         escape = 0;
                     } else if (chr == '\\') {
                         escape = 1;
+                    }
+                    break;
+                case STATE_COMMENT:
+                    if (pos == 1) {
+                        /* time to decide */
+                        if (chr == '/' || chr == '*') {
+                            /* comment -- no special handling */
+                        } else if (chr == '=') {
+                            /* /= operator */
+                            f = 2;
+                        } else {
+                            /* / operator */
+                            unread_char();
+                            f = 2;
+                        }
+                    } else {
+                        if (lex.val[1] == '*' &&
+                            chr == '/' &&
+                            lex.val[pos-1] == '*') {
+                            /* closing of multi-line comment */
+                            f = 2;
+                        } else if (lex.val[1] == '/' &&
+                                   chr == '\n') {
+                            /* closing of single-line comment */
+                            f = 2;
+                        } else if (lex.val[1] == '*' && chr == EOF) {
+                            /* invalid token */
+                            unread_char();
+                            f = 1;
+                        }
                     }
                     break;
                 case STATE_OP:
@@ -312,7 +346,7 @@ void get_lexeme() {
             }
             /* what's next? */
             if (f == 0) {
-                /* store chr and move to next */            
+                /* store chr and move to next */
                 lex.val[pos++] = chr;
                 chr = next_char();
             } else if (f == 1) {
@@ -326,13 +360,29 @@ void get_lexeme() {
                 print_err("invalid token: %s", lex.val);
             } else {
                 /* append to token if string or char */
-                if (state == STATE_CHAR || state == STATE_STRING) {            
-                    lex.val[pos++] = chr;                
+                if (state == STATE_CHAR || state == STATE_STRING) {
+                    /* append current chr */
+                    lex.val[pos++] = chr;
+                    lex.val[pos] = 0;
+                } else if (state == STATE_COMMENT) {
+                    /* update lexeme value depending on state */
+                    if (pos == 1) {
+                        if (chr == '=') {
+                            lex.val[pos++] = chr;
+                        }
+                    } else {
+                        if (chr == '/') {
+                            lex.val[pos++] = chr;
+                        }
+                    }
+                    lex.val[pos] = 0;
                 } else if (state == STATE_EOF) {
+                    /* put empty lexeme */
                     lex.val[0] = 0;
+                } else {
+                    /* append 0 */
+                    lex.val[pos] = 0;
                 }
-                /* done */
-                lex.val[pos] = 0;
                 /* determine type of lexeme */
                 switch(state) {
                     case STATE_CHAR:
@@ -340,6 +390,14 @@ void get_lexeme() {
                         break;
                     case STATE_STRING:
                         lex.type = LEX_STR_LITERAL;
+                        break;
+                    case STATE_COMMENT:
+                        if (lex.val[1] == '*' || lex.val[1] == '/') {
+                            lex.type = LEX_COMMENT;
+                            get_lexeme();
+                        } else {
+                            lex.type = LEX_OP;
+                        }
                         break;
                     case STATE_OP:
                         lex.type = LEX_OP;

@@ -28,4 +28,4 @@ if [ -z "$INFILE" -o -z "$OUTFILE" ]; then
 fi;
 
 # preprocess
-m4 $INFILE > $OUTFILE
+gcc -E -o $OUTFILE -x c $INFILE
