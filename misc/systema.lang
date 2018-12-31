@@ -25,7 +25,7 @@
 <language id="systema" _name="Systema" version="2.0" _section="Sources">
   <metadata>
     <property name="mimetypes">text;</property>
-    <property name="globs">*.m</property>
+    <property name="globs">*.sys;*.inc</property>
     <property name="line-comment-start">//</property>
     <property name="block-comment-start">/*</property>
     <property name="block-comment-end">*/</property>
