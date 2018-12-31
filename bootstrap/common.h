@@ -11,7 +11,7 @@
 #define DIM_TYP 0
 #define DIM_DEC 1
 #define DIM_DEF 2
-    
+
 /* storage classes */
 #define STORE_CODE   0
 #define STORE_RODATA 1
@@ -133,7 +133,7 @@ void arch_sp_fmt(char *str, int offset);
 int arch_get_reg(int usage, int indx);
 int arch_get_reg_size(char *reg_name);
 void arch_func_entry(char *stack_sym);
-void arch_func_leave();
+void arch_func_leave(char *stack_sym);
 void arch_jmp(char *lbl);
 void arch_loadb_literal(char literal, int reg);
 void arch_loadh_literal(short literal, int reg);
@@ -313,7 +313,7 @@ void emit_data(type_t *type, expr_t *expr);
 void emit_string(char *str);
 void emit_space(int space);
 void emit_func_entry(char *stack_sym);
-void emit_func_leave();
+void emit_func_leave(char *stack_sym);
 void emit_set(char *sym, int val);
 void emit_jmp(char *lbl);
 int  emit_get_reg(int usage, int indx);

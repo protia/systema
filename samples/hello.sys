@@ -1,0 +1,16 @@
+
+dec printf as func (fmt : text, ...      ) returns byte ;
+
+def main as func (argc: four, argv: @[text]) returns byte:
+    def i  as eigh;
+begin
+
+    i := 0;
+    while i < argc do
+        printf("arg %d: %s\n", i, argv@[i]);
+        i++;
+    loop;
+
+    return 0;
+end;
+

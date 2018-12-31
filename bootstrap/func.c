@@ -109,9 +109,9 @@ expr_t *parse_func_call(expr_t *func) {
                     err = 1;
                 } else {
                     /* implicit cast needed? */
-                    if (param_list->type->specifier != 
+                    if (param_list->type->specifier !=
                         expr_list->expr->type->specifier) {
-                        expr_list->expr = type_cast(expr_list->expr, 
+                        expr_list->expr = type_cast(expr_list->expr,
                                                     param_list->type);
                     }
                 }
@@ -133,8 +133,8 @@ expr_t *parse_func_call(expr_t *func) {
     }
     if (!err) {
         /* push args to stack */
-        push_recursively(top, 0);    
-        /* issue call to function */ 
+        push_recursively(top, 0);
+        /* issue call to function */
         emit_call(func);
         /* pop out arguments */
         pop_recursively(top, 0);
@@ -187,15 +187,15 @@ void parse_func(sym_t *sym) {
     strcat(stack_sym, sym->name);
     strcat(stack_sym, ".frame");
 
-    /* function entry point assembly code */
-    emit_comment("FUNCTION ENTRY");
-    emit_func_entry(stack_sym);
-
     /* enter a new scope level */
     enter_scope();
 
     /* initialize stack frame */
     init_stack_frame();
+
+    /* function entry point assembly code */
+    emit_comment("FUNCTION ENTRY");
+    emit_func_entry(stack_sym);
 
     /* get function header */
     type = sym->type;
@@ -235,7 +235,7 @@ void parse_func(sym_t *sym) {
             } else {
                 /* invalid type */
                 print_err("invalid parameter types",0);
-            } 
+            }
         }
         /* next parameter */
         param_list = param_list->sublist;
@@ -293,7 +293,7 @@ void parse_func(sym_t *sym) {
 
     /* function termination */
     emit_comment("FUNCTION EXIT");
-    emit_func_leave();
+    emit_func_leave(stack_sym);
     emit_set(stack_sym, get_stack_size());
 
     /* delete symbols of current scope */

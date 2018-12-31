@@ -26,7 +26,7 @@ void emit_section(int section) {
         } else if (section == STORE_BSS) {
             fprintf(emit_fd, "\n.bss\n");
         } else if (section == STORE_RODATA) {
-            fprintf(emit_fd, "\n.section \"rodata\", \"ax\"\n");        
+            fprintf(emit_fd, "\n.section \"rodata\", \"ax\"\n");
         }
     }
 }
@@ -73,8 +73,8 @@ void emit_func_entry(char *stack_sym) {
     arch_func_entry(stack_sym);
 }
 
-void emit_func_leave() {
-    arch_func_leave();
+void emit_func_leave(char *stack_sym) {
+    arch_func_leave(stack_sym);
 }
 
 void emit_set(char *sym, int val) {
@@ -284,7 +284,7 @@ void emit_extend_signed(type_t *src_type, type_t *dest_type, int reg) {
     } else if (from == TYPE_HALF && to == TYPE_WORD) {
         arch_exthw(reg);
     } else if (from == TYPE_HALF && (to == TYPE_DOBL || to == TYPE_PTR)) {
-        arch_exthl(reg);    
+        arch_exthl(reg);
     } else if (from == TYPE_WORD && (to == TYPE_DOBL || to == TYPE_PTR)) {
         arch_extwl(reg);
     } else {
@@ -305,7 +305,7 @@ void emit_extend_unsigned(type_t *src_type, type_t *dest_type, int reg) {
     } else if (from == TYPE_HALF && to == TYPE_WORD) {
         arch_exthw_zero(reg);
     } else if (from == TYPE_HALF && (to == TYPE_DOBL || to == TYPE_PTR)) {
-        arch_exthl_zero(reg);    
+        arch_exthl_zero(reg);
     } else if (from == TYPE_WORD && (to == TYPE_DOBL || to == TYPE_PTR)) {
         arch_extwl_zero(reg);
     } else {
@@ -850,7 +850,7 @@ void emit_fed_m4_macro() {
 }
 
 void emit_use_m4_macro(char *macro_name) {
-    fprintf(emit_fd, "%s`'", macro_name);    
+    fprintf(emit_fd, "%s`'", macro_name);
 }
 
 void emit_nop() {

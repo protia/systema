@@ -52,7 +52,7 @@ char *arch_get_reg_name(int reg, int size) {
         } else if (size == 8) {
             name = "%rbx";
         }
-    } else if (reg == 2) {        
+    } else if (reg == 2) {
         if (size == 1) {
             name = "%cl";
         } else if (size == 2) {
@@ -62,7 +62,7 @@ char *arch_get_reg_name(int reg, int size) {
         } else if (size == 8) {
             name = "%rcx";
         }
-    } else if (reg == 3) {        
+    } else if (reg == 3) {
         if (size == 1) {
             name = "%dl";
         } else if (size == 2) {
@@ -72,7 +72,7 @@ char *arch_get_reg_name(int reg, int size) {
         } else if (size == 8) {
             name = "%rdx";
         }
-    } else if (reg == 4) {        
+    } else if (reg == 4) {
         if (size == 2) {
             name = "%si";
         } else if (size == 4) {
@@ -80,7 +80,7 @@ char *arch_get_reg_name(int reg, int size) {
         } else if (size == 8) {
             name = "%rsi";
         }
-    } else if (reg == 5) {        
+    } else if (reg == 5) {
         if (size == 2) {
             name = "%di";
         } else if (size == 4) {
@@ -116,7 +116,7 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =  "%r13b"; regs[i++].size = 1;
         regs[i].name =  "%r14b"; regs[i++].size = 1;
         regs[i].name =  "%r15b"; regs[i++].size = 1;
-        
+
         regs[i].name =    "%ax"; regs[i++].size = 2;
         regs[i].name =    "%bx"; regs[i++].size = 2;
         regs[i].name =    "%cx"; regs[i++].size = 2;
@@ -133,7 +133,7 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =  "%r13w"; regs[i++].size = 2;
         regs[i].name =  "%r14w"; regs[i++].size = 2;
         regs[i].name =  "%r15w"; regs[i++].size = 2;
-    
+
         regs[i].name =   "%eax"; regs[i++].size = 4;
         regs[i].name =   "%ebx"; regs[i++].size = 4;
         regs[i].name =   "%ecx"; regs[i++].size = 4;
@@ -150,7 +150,7 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =  "%r13d"; regs[i++].size = 4;
         regs[i].name =  "%r14d"; regs[i++].size = 4;
         regs[i].name =  "%r15d"; regs[i++].size = 4;
-        
+
         regs[i].name =   "%rax"; regs[i++].size = 8;
         regs[i].name =   "%rbx"; regs[i++].size = 8;
         regs[i].name =   "%rcx"; regs[i++].size = 8;
@@ -167,14 +167,14 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =   "%r13"; regs[i++].size = 8;
         regs[i].name =   "%r14"; regs[i++].size = 8;
         regs[i].name =   "%r15"; regs[i++].size = 8;
-        
+
         regs[i].name =    "%cs"; regs[i++].size = 2;
         regs[i].name =    "%ds"; regs[i++].size = 2;
         regs[i].name =    "%es"; regs[i++].size = 2;
         regs[i].name =    "%fs"; regs[i++].size = 2;
         regs[i].name =    "%gs"; regs[i++].size = 2;
         regs[i].name =    "%ss"; regs[i++].size = 2;
-        
+
         regs[i].name =   "%cr0"; regs[i++].size = 8;
         regs[i].name =   "%cr1"; regs[i++].size = 8;
         regs[i].name =   "%cr2"; regs[i++].size = 8;
@@ -184,20 +184,20 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =   "%cr6"; regs[i++].size = 8;
         regs[i].name =   "%cr7"; regs[i++].size = 8;
         regs[i].name =   "%cr8"; regs[i++].size = 8;
-        
+
         regs[i].name =   "%dr0"; regs[i++].size = 8;
         regs[i].name =   "%dr1"; regs[i++].size = 8;
         regs[i].name =   "%dr2"; regs[i++].size = 8;
         regs[i].name =   "%dr3"; regs[i++].size = 8;
         regs[i].name =   "%dr6"; regs[i++].size = 8;
         regs[i].name =   "%dr7"; regs[i++].size = 8;
-        
+
         regs[i].name =   "%tr3"; regs[i++].size = 4;
         regs[i].name =   "%tr4"; regs[i++].size = 4;
         regs[i].name =   "%tr5"; regs[i++].size = 4;
         regs[i].name =   "%tr6"; regs[i++].size = 4;
         regs[i].name =   "%tr7"; regs[i++].size = 4;
-        
+
         regs[i].name =   "%mm0"; regs[i++].size = 8;
         regs[i].name =   "%mm1"; regs[i++].size = 8;
         regs[i].name =   "%mm2"; regs[i++].size = 8;
@@ -206,7 +206,7 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name =   "%mm5"; regs[i++].size = 8;
         regs[i].name =   "%mm6"; regs[i++].size = 8;
         regs[i].name =   "%mm7"; regs[i++].size = 8;
-        
+
         regs[i].name = "%xmm00"; regs[i++].size = 16;
         regs[i].name = "%xmm01"; regs[i++].size = 16;
         regs[i].name = "%xmm02"; regs[i++].size = 16;
@@ -223,7 +223,7 @@ int arch_get_reg_size(char *reg_name) {
         regs[i].name = "%xmm13"; regs[i++].size = 16;
         regs[i].name = "%xmm14"; regs[i++].size = 16;
         regs[i].name = "%xmm15"; regs[i++].size = 16;
-        
+
         regs[i].name = NULL;
         regs[i].size = 0;
         regs_init = 1;
@@ -231,7 +231,7 @@ int arch_get_reg_size(char *reg_name) {
     /* look for register */
     i = 0;
     while (regs[i].name && strcmp(regs[i].name, reg_name)) {
-        i++;    
+        i++;
     }
     return regs[i].size;
 }
@@ -239,11 +239,14 @@ int arch_get_reg_size(char *reg_name) {
 void arch_func_entry(char *stack_sym) {
     fprintf(emit_fd, "\tpushq  %%rbp\n");
     fprintf(emit_fd, "\tmovq   %%rsp, %%rbp\n");
-    fprintf(emit_fd, "\tlea    -%s(%%rbp), %%rsp\n", stack_sym);
+    fprintf(emit_fd, "\tsubq   $%s, %%rsp\n", stack_sym);
 }
 
-void arch_func_leave() {
-    fprintf(emit_fd, "\tmovq   %%rbp, %%rsp\n");
+void arch_func_leave(char *stack_sym) {
+    if (get_stack_size() % 16) {
+        get_new_addr(get_stack_size() % 16);
+    }
+    fprintf(emit_fd, "\taddq   $%s, %%rsp\n", stack_sym);
     fprintf(emit_fd, "\tpopq   %%rbp\n");
     fprintf(emit_fd, "\tret\n");
 }
@@ -1159,20 +1162,20 @@ void arch_adjust_stack(int stack_size) {
     fprintf(emit_fd, "\tlea    -%d(%%rbp), %%rsp\n", stack_size);
 }
 
-void arch_loadarg(int arg, int reg) {    
+void arch_loadarg(int arg, int reg) {
     char *reg_name = arch_get_reg_name(reg, 8);
     if (arg == 0) {
-        fprintf(emit_fd, "\tmovq   %%rdi, %s\n", reg_name);    
+        fprintf(emit_fd, "\tmovq   %%rdi, %s\n", reg_name);
     } else if (arg == 1) {
-        fprintf(emit_fd, "\tmovq   %%rsi, %s\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %%rsi, %s\n", reg_name);
     } else if (arg == 2) {
-        fprintf(emit_fd, "\tmovq   %%rdx, %s\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %%rdx, %s\n", reg_name);
     } else if (arg == 3) {
-        fprintf(emit_fd, "\tmovq   %%rcx, %s\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %%rcx, %s\n", reg_name);
     } else if (arg == 4) {
-        fprintf(emit_fd, "\tmovq   %%r8, %s\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %%r8, %s\n", reg_name);
     } else if (arg == 5) {
-        fprintf(emit_fd, "\tmovq   %%r9, %s\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %%r9, %s\n", reg_name);
     } else {
         fprintf(emit_fd, "\tmovq   %d(%%rbp), %s\n", (arg-4)*8, reg_name);
     }
@@ -1181,17 +1184,17 @@ void arch_loadarg(int arg, int reg) {
 void arch_pusharg(int reg, int arg) {
     char *reg_name = arch_get_reg_name(reg, 8);
     if (arg == 0) {
-        fprintf(emit_fd, "\tmovq   %s, %%rdi\n", reg_name);    
+        fprintf(emit_fd, "\tmovq   %s, %%rdi\n", reg_name);
     } else if (arg == 1) {
-        fprintf(emit_fd, "\tmovq   %s, %%rsi\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %s, %%rsi\n", reg_name);
     } else if (arg == 2) {
-        fprintf(emit_fd, "\tmovq   %s, %%rdx\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %s, %%rdx\n", reg_name);
     } else if (arg == 3) {
-        fprintf(emit_fd, "\tmovq   %s, %%rcx\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %s, %%rcx\n", reg_name);
     } else if (arg == 4) {
-        fprintf(emit_fd, "\tmovq   %s, %%r8\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %s, %%r8\n", reg_name);
     } else if (arg == 5) {
-        fprintf(emit_fd, "\tmovq   %s, %%r9\n", reg_name);  
+        fprintf(emit_fd, "\tmovq   %s, %%r9\n", reg_name);
     } else {
         fprintf(emit_fd, "\tpushq  %s\n", reg_name);
     }
