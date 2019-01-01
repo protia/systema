@@ -4,13 +4,15 @@ def parse_id_list: func() returns @id_list_t
     def done : four;
     def count: four;
     def sym  : @sym_t;
+    def top  : @id_list_t;
+    def cur  : @id_list_t;
 begin
     /* initialize flags */
     done := 0;
     count := 0;
     /* id_list: identifier (',' id_list | lambda) */
-    id_list_t *top := alloc_id_list();
-    id_list_t *cur := top;
+    top := alloc_id_list();
+    cur := top;
     top@.sublist := NULL;
     top@.count := 0;
     top@.sym := NULL;
@@ -20,20 +22,22 @@ begin
         if lex.type != LEX_IDENTIFIER then
             print_err("expected identifier", NULL);
             unget_lexeme();
-        elsif ((sym := get_sym(lex.val)) and
-                   sym@.scope == get_scope() and
-                   ! sym@.decl) {
+        elsif (sym := get_sym(&lex.val))  and
+              (sym@.scope == get_scope()) and
+              (!sym@.decl)
+        then
             /* symbol already defined!  */
             print_err("symbol already defined", 0);
         else
             /* add to id list */
-            if ((sym := get_sym(lex.val)) and
-                sym@.scope == get_scope()) {
+            if (sym := get_sym(&lex.val)) and
+                (sym@.scope == get_scope())
+            then
                 /* already declared with some type */
-                cur@.sym := add_sym(lex.val, sym@.type);
+                cur@.sym := add_sym(&lex.val, sym@.type);
             else
                 /* assume void until initialized */
-                cur@.sym := add_sym(lex.val, alloc_type());
+                cur@.sym := add_sym(&lex.val, alloc_type());
             endif;
             cur@.sublist := alloc_id_list();
             cur@.sublist@.count := 0;
@@ -49,13 +53,13 @@ begin
             unget_lexeme();
             done := 1;
         endif;
-    endif;
+    loop;
     /* modify count */
     cur := top;
-    while(cur) {
+    while cur do
         cur@.count := count;
         count--;
         cur := cur@.sublist;
-    endif;
+    loop;
     return top;
 end;

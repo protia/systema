@@ -16,11 +16,12 @@ begin
         expr := expr_list@.expr;
         type := expr@.type;
         /* determine arg_count */
-        if (type@.specifier == TYPE_BYTE or
-            type@.specifier == TYPE_HALF or
-            type@.specifier == TYPE_WORD or
-            type@.specifier == TYPE_DOBL or
-            type@.specifier == TYPE_PTR) {
+        if type@.specifier == TYPE_BYTE or
+           type@.specifier == TYPE_HALF or
+           type@.specifier == TYPE_WORD or
+           type@.specifier == TYPE_DOBL or
+           type@.specifier == TYPE_PTR
+        then
             arg_count := 1;
         else
             arg_count  := 0;
@@ -28,11 +29,12 @@ begin
         /* next argument */
         push_recursively(expr_list@.sublist, cur_arg+arg_count);
         /* push argument into stack */
-        if (type@.specifier == TYPE_BYTE or
-            type@.specifier == TYPE_HALF or
-            type@.specifier == TYPE_WORD or
-            type@.specifier == TYPE_DOBL or
-            type@.specifier == TYPE_PTR) {
+        if type@.specifier == TYPE_BYTE or
+           type@.specifier == TYPE_HALF or
+           type@.specifier == TYPE_WORD or
+           type@.specifier == TYPE_DOBL or
+           type@.specifier == TYPE_PTR
+        then
             emit_load(expr, reg);
             if type@.specifier < TYPE_DOBL then
                 longtype := alloc_type();
@@ -63,11 +65,12 @@ begin
         expr := expr_list@.expr;
         type := expr@.type;
         /* determine arg_count and pop out arguments */
-        if (type@.specifier == TYPE_BYTE or
-            type@.specifier == TYPE_HALF or
-            type@.specifier == TYPE_WORD or
-            type@.specifier == TYPE_DOBL or
-            type@.specifier == TYPE_PTR) {
+        if type@.specifier == TYPE_BYTE or
+           type@.specifier == TYPE_HALF or
+           type@.specifier == TYPE_WORD or
+           type@.specifier == TYPE_DOBL or
+           type@.specifier == TYPE_PTR
+        then
             emit_poparg(cur_arg, reg);
             arg_count := 1;
         else
@@ -76,7 +79,7 @@ begin
         /* next argument */
         pop_recursively(expr_list@.sublist, cur_arg+arg_count);
     endif;
-endif;
+end;
 
 def parse_func_call: func(func_expr: @expr_t) returns @expr_t
 
@@ -116,7 +119,7 @@ begin
         unget_lexeme();
     endif;
     /* all parameters must match function definition */
-    while(! done) {
+    while !done do
         if ! expr_list@.count or ! param_list@.count then
             if param_list@.any then
                 param_list := param_list@.sublist;
@@ -135,8 +138,9 @@ begin
                     err := 1;
                 else
                     /* implicit cast needed? */
-                    if (param_list@.type@.specifier !=
-                        expr_list@.expr@.type@.specifier) {
+                    if param_list@.type@.specifier !=
+                       expr_list@.expr@.type@.specifier
+                    then
                         expr_list@.expr := type_cast(expr_list@.expr,
                                                     param_list@.type);
                     endif;
@@ -148,7 +152,7 @@ begin
                 param_list := param_list@.sublist;
             endif;
         endif;
-    endif;
+    loop;
     /* parameter count is valid? */
     if expr_list@.count then
         print_err("too many parameters for function", 0);
@@ -188,11 +192,12 @@ begin
     if ! strcmp(&lex.val, "returns") then
         /* read ret type */
         type@.rettype := parse_type();
-        if (type@.rettype@.specifier != TYPE_BYTE and
-            type@.rettype@.specifier != TYPE_HALF and
-            type@.rettype@.specifier != TYPE_WORD and
-            type@.rettype@.specifier != TYPE_DOBL and
-            type@.rettype@.specifier != TYPE_PTR) {
+        if type@.rettype@.specifier != TYPE_BYTE and
+           type@.rettype@.specifier != TYPE_HALF and
+           type@.rettype@.specifier != TYPE_WORD and
+           type@.rettype@.specifier != TYPE_DOBL and
+           type@.rettype@.specifier != TYPE_PTR
+        then
             print_err("unsupported return type", 0);
             type@.rettype := alloc_type();
         endif;
@@ -224,7 +229,7 @@ begin
     arg_count := 0;
 
     /* determine stack symbol */
-    stack_sym := malloc(strlen(sym@.name)+20);
+    stack_sym := malloc(strlen(sym@.name)+20) as @[byte];
     strcpy(stack_sym, ".");
     strcat(stack_sym, sym@.name);
     strcat(stack_sym, ".frame");
@@ -259,11 +264,12 @@ begin
             expr@.type := param_list@.type;
             expr@.addr := sym@.val;
             /* load argument into variable */
-            if (param_list@.type@.specifier == TYPE_BYTE or
-                param_list@.type@.specifier == TYPE_HALF or
-                param_list@.type@.specifier == TYPE_WORD or
-                param_list@.type@.specifier == TYPE_DOBL or
-                param_list@.type@.specifier == TYPE_PTR) {
+            if param_list@.type@.specifier == TYPE_BYTE or
+               param_list@.type@.specifier == TYPE_HALF or
+               param_list@.type@.specifier == TYPE_WORD or
+               param_list@.type@.specifier == TYPE_DOBL or
+               param_list@.type@.specifier == TYPE_PTR
+            then
                 /* integral type */
                 emit_loadarg(arg_count, reg);
                 emit_store(reg, expr);
@@ -281,7 +287,7 @@ begin
         endif;
         /* next parameter */
         param_list := param_list@.sublist;
-    endif;
+    loop;
 
     /* evaluate dims */
     emit_comment("EVALUATE VARIABLE DEFINITIONS");
