@@ -1,6 +1,6 @@
 #include <common.inc>
 
-def unsignedf : four ::= 0;
+def unsignedf : four;
 
 def set_unsignedf: func(newval: four) returns four
     def oldval: four;

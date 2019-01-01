@@ -49,15 +49,14 @@ begin
     emit_comment("IF: TRUE STATEMENT BLOCK");
     parse_stmt_list();
 
-    /* jmp to end of if */
-    emit_jmp(lbl2);
-
     /* lookahead */
     get_lexeme();
     unget_lexeme();
 
     /* else/elseif? */
     if strcmp(&lex.val, "endif") then
+        /* jmp to end of if */
+        emit_jmp(lbl2);
         /* either elsif, else, or endif */
         while ! done do
             get_lexeme();

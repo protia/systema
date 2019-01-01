@@ -21,10 +21,10 @@ begin
     elsif type@.specifier == TYPE_RECORD then
         cur := type@.param_list;
         size := 0;
-        while(cur@.type) {
-            size +:= type_size(cur@.type);
-            cur := cur@.sublist;
-        endif;
+        while (cur@.type) do
+            size += type_size(cur@.type);
+            cur  := cur@.sublist;
+        loop;
     else
         print_err("can! get size for that type.", 0);
     endif;

@@ -6,9 +6,13 @@ int type_match(type_t *type1, type_t *type2, int strict) {
     int ret;
     param_list_t *param_list1;
     param_list_t *param_list2;
-    if (type1->specifier == TYPE_VOID) {
-        /* type2 must be void */
-        ret = type2->specifier == TYPE_VOID;
+    if (type1->specifier == TYPE_VOID || type2->specifier == TYPE_VOID) {
+        /* both must be void */
+        if (strict) {
+            ret = type1->specifier == type2->specifier;
+        } else {
+            ret = 1;
+        }
     } else if (type1->specifier >= TYPE_BYTE &&
                type1->specifier <= TYPE_DOBL) {
         /* type2 must also be integral */

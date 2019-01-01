@@ -66,6 +66,7 @@ char *ops[] = {
     "^=",
     "|=",
     "=",
+    NULL
 };
 
 char *keywords[] = {
@@ -116,15 +117,17 @@ char *keywords[] = {
     "loop",
     "return",
     "end",
+    NULL
 };
 
 int isop(char *str) {
     int i = 0;
     int found = 0;
-    for (i = 0; i < sizeof(ops)/sizeof(ops[i]) && !found; i++) {
+    while (!found && ops[i] != NULL) {
         if (!strcmp(ops[i], str)) {
             found = 1;
         }
+        i++;
     }
     return found;
 }
@@ -132,10 +135,11 @@ int isop(char *str) {
 int iskeyword(char *str) {
     int i = 0;
     int found = 0;
-    for (i = 0; i < sizeof(keywords)/sizeof(keywords[i])&&!found; i++) {
+    while (!found && keywords[i] != NULL) {
         if (!strcmp(keywords[i], str)) {
             found = 1;
         }
+        i++;
     }
     return found;
 }

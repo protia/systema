@@ -28,7 +28,7 @@ begin
         strcpy(expr@.addr, &lex.val as @[byte]);
      else
         expr@.addr := malloc(strlen(sym@.val)+1) as @[byte];
-        strcpy(expr@.addr, &sym@.val as @[byte]);
+        strcpy(expr@.addr, sym@.val);
         expr@.type := sym@.type;
     endif;
     expr@.lvalue := 1;
@@ -73,42 +73,10 @@ begin
     return expr;
 end;
 
-def parse_assembly: func()
-    def line: @[byte];
-begin
-    /* parse assembly */
-    get_lexeme();
-    /* parse ( */
-    get_lexeme();
-    if strcmp(&lex.val, "(") then
-        print_err("expected (", 0);
-        unget_lexeme();
-    endif;
-    /* parse string literal */
-    get_lexeme();
-    if lex.type != LEX_STR_LITERAL then
-        print_err("expected string literal", 0);
-        unget_lexeme();
-    else
-        line := malloc(strlen(&lex.val)+1) as @[byte];
-        strcpy(line, &lex.val[1] as @[byte]);
-        line@[strlen(line) - 1] := 0;
-        emit_line(line);
-    endif;
-    /* parse ) */
-    get_lexeme();
-    if strcmp(&lex.val, ")") then
-        print_err("expected )", 0);
-        unget_lexeme();
-    endif;
-end;
-
 def parse_factor: func() returns @expr_t
     def expr     : @expr_t;
-    def unsignedf: four;
 begin
-    /* factor: parent | unsigned | assembly | identifier |
-               int_literal | str_literal */
+    /* factor: parent | identifier | int_literal | str_literal */
     /* look ahead */
     get_lexeme();
     unget_lexeme();
@@ -116,16 +84,6 @@ begin
     if ! strcmp(&lex.val, "(") then
         /* parenthesis */
         expr := parse_parent();
-    elsif ! strcmp(&lex.val, "unsigned") then
-        /* unsigned expression */
-        unsignedf := set_unsignedf(1);
-        get_lexeme(); /* unsigned */
-        expr := parse_expr();
-        reset_unsignedf(unsignedf);
-    elsif ! strcmp(&lex.val, "assembly") then
-        /* inline assembly */
-        parse_assembly();
-        expr := alloc_expr();
     elsif lex.type == LEX_IDENTIFIER then
         /* encountered identifier */
         expr := parse_identifier();

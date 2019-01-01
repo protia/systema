@@ -20,7 +20,7 @@ begin
         /* read identifier */
         get_lexeme();
         if lex.type != LEX_IDENTIFIER then
-            print_err("expected identifier", NULL);
+            print_err("expected identifier", 0);
             unget_lexeme();
         elsif (sym := get_sym(&lex.val))  and
               (sym@.scope == get_scope()) and

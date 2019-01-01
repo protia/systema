@@ -8,18 +8,7 @@ void do_assign(expr_t *dest, expr_t *src) {
     if (!dest->lvalue) {
         print_err("operand must be lvalue", 0);
     } else if (!type_match(src->type, dest->type, 1)) {
-        if (src->type->specifier >= TYPE_BYTE &&
-            src->type->specifier <= TYPE_DOBL &&
-            src->literal == 1 &&
-            src->byte_literal_val == 0 &&
-            src->half_literal_val == 0 &&
-            src->word_literal_val == 0 &&
-            src->long_literal_val == 0 &&
-            dest->type->specifier == TYPE_PTR) {
-            /* special case: pointer := null */
-        } else {
-            print_err("operands must be of the same type", 0);
-        }
+        print_err("operands must be of the same type", 0);
     } else {
         /* check if casting is needed */
         if (src->type->specifier != dest->type->specifier) {
@@ -316,11 +305,11 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
                 /* store offset in op2 */
                 op2->literal = 1;
                 op2->type = alloc_type();
-                op2->type->specifier = TYPE_WORD;
+                op2->type->specifier = TYPE_DOBL;
                 op2->type->complete = 1;
                 op2->type->subcount = 0;
                 op2->type->subtype = NULL;
-                op2->word_literal_val = offset;
+                op2->long_literal_val = offset;
                 /* p += i */
                 expr = do_binary(expr, "+", op2);
                 /* now expr holds the destined address */
@@ -337,10 +326,10 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
             expr = op1;
         }
 
-    } else if (op1->type->specifier >= TYPE_BYTE &&
-               op1->type->specifier <= TYPE_PTR  &&
-               op2->type->specifier >= TYPE_BYTE &&
-               op2->type->specifier <= TYPE_PTR) {
+    } else if ((op1->type->specifier >= TYPE_BYTE &&
+                op1->type->specifier <= TYPE_DOBL &&
+                op2->type->specifier >= TYPE_BYTE &&
+                op2->type->specifier <= TYPE_DOBL)) {
 
         /* two operands are integral */
         /* final type is the largest of them */
@@ -547,7 +536,7 @@ expr_t *do_binary(expr_t *op1, char *op, expr_t *op2) {
         subtype_size->long_literal_val=type_size(op1->type->subtype);
 
         /* subtype must be complete */
-        if (!subtype_size->long_literal_val) {
+        if (!strcmp(op, "-") && !subtype_size->long_literal_val) {
             print_err("pointer subtype must be complete or void", 0);
         }
 

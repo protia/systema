@@ -10,17 +10,17 @@ begin
     /* lookahead */
     get_lexeme();
     /* := ? */
-    if (!strcmp(&lex.val, ":=")  or
-        !strcmp(&lex.val, "+=")  or
-        !strcmp(&lex.val, "-=")  or
-        !strcmp(&lex.val, "*=")  or
-        !strcmp(&lex.val, "/=")  or
-        !strcmp(&lex.val, "%=")  or
-        !strcmp(&lex.val, "&=")  or
-        !strcmp(&lex.val, "|=")  or
-        !strcmp(&lex.val, "^=")  or
-        !strcmp(&lex.val, ">>=") or
-        !strcmp(&lex.val, "<<=")) then
+    if !strcmp(&lex.val, ":=")  or
+       !strcmp(&lex.val, "+=")  or
+       !strcmp(&lex.val, "-=")  or
+       !strcmp(&lex.val, "*=")  or
+       !strcmp(&lex.val, "/=")  or
+       !strcmp(&lex.val, "%=")  or
+       !strcmp(&lex.val, "&=")  or
+       !strcmp(&lex.val, "|=")  or
+       !strcmp(&lex.val, "^=")  or
+       !strcmp(&lex.val, ">>=") or
+       !strcmp(&lex.val, "<<=") then
         /* assignment */
         strcpy(&op, &lex.val);
         op[strlen(&op)-1] := 0;

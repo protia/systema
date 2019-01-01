@@ -17,6 +17,9 @@ begin
         after@.literal := 1;
         after@.type    := new_type;
         literal_type_cast(before, after);
+        if from_spec <= TYPE_DOBL and to_spec == TYPE_PTR then
+            after@.addr := NULL; /* not string literal */
+        endif;
     elsif type_size(before@.type) == type_size(new_type) then
         /* no need to perform casting */
         after@.type    := new_type;

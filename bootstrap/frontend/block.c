@@ -6,19 +6,19 @@
 void parse_if() {
 
     expr_t *expr;
-    char *lbl2 = get_new_label();
     char *lbl1 = get_new_label();
+    char *lbl2 = get_new_label();
     int reg = emit_get_reg(REG_ACC, 0);
     int done = 0;
     int has_else = 0;
 
     /* if */
     get_lexeme();
-    
+
     /* expr */
     emit_comment("IF: CONDITION EXPRESSION EVALUATION");
     expr = parse_expr();
-    
+
     /* expr must be numerical */
     if (expr->type->specifier == TYPE_BYTE ||
         expr->type->specifier == TYPE_HALF ||
@@ -32,31 +32,31 @@ void parse_if() {
     } else {
         print_err("invalid type for if condition", 0);
     }
-    
+
     /* then */
     get_lexeme();
     if (strcmp(lex.val, "then")) {
         unget_lexeme();
         print_err("expected then", 0);
     }
-    
+
     /* statements */
     emit_comment("IF: TRUE STATEMENT BLOCK");
     parse_stmt_list();
-    
-    /* jmp to end of if */
-    emit_jmp(lbl2);
-    
+
     /* lookahead */
     get_lexeme();
     unget_lexeme();
-    
+
     /* else/elseif? */
     if(strcmp(lex.val, "endif")) {
+        /* jmp to end of if */
+        emit_jmp(lbl2);
+
         /* either elsif, else, or endif */
         while (!done) {
             get_lexeme();
-            if (!strcmp(lex.val, "elsif") || !strcmp(lex.val, "else")) {            
+            if (!strcmp(lex.val, "elsif") || !strcmp(lex.val, "else")) {
                 /* lbl1 goes here */
                 emit_label(lbl1);
                 /* allocate new label */
@@ -78,7 +78,7 @@ void parse_if() {
                         emit_bze(expr->type, reg, lbl1);
                     } else {
                         print_err("invalid type for if condition", 0);
-                    }    
+                    }
                     /* then */
                     get_lexeme();
                     if (strcmp(lex.val, "then")) {
@@ -99,7 +99,7 @@ void parse_if() {
                 parse_stmt_list();
                 /* jmp to end of if */
                 if (!has_else) {
-                    emit_jmp(lbl2); 
+                    emit_jmp(lbl2);
                 }
             } else {
                 unget_lexeme();
@@ -112,17 +112,17 @@ void parse_if() {
             emit_label(lbl1);
             emit_nop();
         }
-    
+
         /* label of final */
         emit_label(lbl2);
     } else {
         /* enough playing */
         emit_label(lbl1);
     }
-    
+
     /* done */
     emit_comment("IF: END IF");
-    
+
     /* endif */
     get_lexeme();
     if (strcmp(lex.val, "endif")) {
@@ -143,14 +143,14 @@ void parse_case() {
 
     /* parse 'case' */
     get_lexeme();
-    
+
     /* allocate label for exit */
     lbl_final = get_new_label();
-    
+
     /* parse case expression */
     emit_comment("CASE: EXPRESSION EVALUATION");
     case_expr = parse_expr();
-    
+
     /* when */
     while (!done) {
         get_lexeme();
@@ -169,7 +169,7 @@ void parse_case() {
                 /* when expr, expr, ... : */
                 unget_lexeme();
                 /* get new labels */
-                lbl_sub  = get_new_label();            
+                lbl_sub  = get_new_label();
                 lbl_next = get_new_label();
                 /* evaluate expression list */
                 emit_comment("CASE: EVALUATE EXPRESSION LIST");
@@ -181,9 +181,9 @@ void parse_case() {
                 emit_comment("CASE: COMPARE AND BRANCH");
                 while (expr_list->count) {
                     /* type cast */
-                    if (expr_list->expr->type->specifier != 
+                    if (expr_list->expr->type->specifier !=
                         case_expr->type->specifier) {
-                        expr_list->expr = type_cast(expr_list->expr, 
+                        expr_list->expr = type_cast(expr_list->expr,
                                                     case_expr->type);
                     }
                     /* emit comparison code */
@@ -200,7 +200,7 @@ void parse_case() {
                     unget_lexeme();
                     print_err("expected :", 0);
                 }
-                
+
                 /* execute action */
                 emit_label(lbl_sub);
                 emit_comment("CASE: EXECUTE ACTION");
@@ -218,28 +218,28 @@ void parse_case() {
                 }
                 /* execute action */
                 emit_comment("CASE: OTHERS BLOCK");
-                parse_stmt_list();   
+                parse_stmt_list();
             }
         }
     }
-    
+
     /* if no (when others) is defined, define it */
     if (!got_others && lbl_next) {
         emit_label(lbl_next);
         emit_comment("CASE: PSEUDO OTHERS CLAUSE");
     }
-    
+
     /* esac */
     get_lexeme();
     if (strcmp(lex.val, "esac")) {
         unget_lexeme();
         print_err("expected esac", 0);
     }
-    
+
     /* done */
-    emit_label(lbl_final);    
+    emit_label(lbl_final);
     emit_comment("CASE: ESAC");
-    
+
 }
 
 void parse_for() {
@@ -252,11 +252,11 @@ void parse_for() {
 
     /* parse 'for' */
     get_lexeme();
-    
+
     /* allocate labels */
     lbl1 = get_new_label();
     lbl2 = get_new_label();
-    
+
     /* parse index */
     index = parse_expr();
     if (!index->lvalue) {
@@ -266,21 +266,21 @@ void parse_for() {
                index->type->specifier != TYPE_WORD &&
                index->type->specifier != TYPE_DOBL &&
                index->type->specifier != TYPE_PTR) {
-        print_err("index must be of numeric type", 0);           
+        print_err("index must be of numeric type", 0);
     }
-    
+
     /* from */
     get_lexeme();
     if (strcmp(lex.val, "from")) {
         unget_lexeme();
         print_err("expected from", 0);
     }
-    
+
     /* read initializer */
     emit_comment("FOR: PEFROM INITIALIZATION");
     init = parse_expr();
     do_assign(index, init);
-    
+
     /* condition evaluation */
     emit_label(lbl1);
     emit_comment("FOR: CONDITION EVALUATION");
@@ -292,7 +292,7 @@ void parse_for() {
     } else {
         unget_lexeme();
     }
-    
+
     /* down */
     get_lexeme();
     if (!strcmp(lex.val, "down")) {
@@ -300,17 +300,17 @@ void parse_for() {
     } else {
         unget_lexeme();
     }
-    
+
     /* to */
     get_lexeme();
     if (strcmp(lex.val, "to")) {
         unget_lexeme();
         print_err("expected to", 0);
     }
-    
+
     /* parse the condition */
     limit = parse_expr();
-    
+
     /* code to check the condition */
     emit_comment("FOR: CHECK CONDITION");
     emit_load(index, reg1);
@@ -347,35 +347,35 @@ void parse_for() {
             print_err("for loop step must be literal", 0);
         }
     }
-        
+
     /* do */
     get_lexeme();
     if (strcmp(lex.val, "do")) {
         unget_lexeme();
         print_err("expected do", 0);
     }
-    
+
     /* statements */
     emit_comment("FOR: EXECUTE BLOCK");
     parse_stmt_list();
-    
-    
+
+
     /* increment */
     emit_comment("FOR: PERFORM INCREMENT");
     tmp = do_binary(index, "+", step);
     do_assign(index, tmp);
-    
+
     /* jump back */
     emit_comment("FOR: JUMP BACK");
     emit_jmp(lbl1);
-    
+
     /* loop keyword */
     get_lexeme();
     if (strcmp(lex.val, "loop")) {
         unget_lexeme();
         print_err("expected loop", 0);
     }
-    
+
     /* done */
     emit_label(lbl2);
     emit_comment("FOR: LOOP DONE");
@@ -387,14 +387,14 @@ void parse_while() {
     expr_t *cond;
     char *lbl1, *lbl2;
     int reg1 = emit_get_reg(REG_ACC, 0);
-    
+
     /* parse 'while' */
     get_lexeme();
-    
+
     /* allocate labels */
     lbl1 = get_new_label();
     lbl2 = get_new_label();
-    
+
     /* parse cond */
     emit_label(lbl1);
     emit_comment("WHILE: EVALUATE CONDITION");
@@ -404,29 +404,29 @@ void parse_while() {
         cond->type->specifier != TYPE_WORD &&
         cond->type->specifier != TYPE_DOBL &&
         cond->type->specifier != TYPE_PTR) {
-        print_err("condition must be of numeric type", 0);           
+        print_err("condition must be of numeric type", 0);
     }
-    
+
     /* check condition */
     emit_comment("WHILE: CHECK CONDITION");
     emit_load(cond, reg1);
     emit_bze(cond->type, reg1, lbl2);
-    
+
     /* do keyword */
     get_lexeme();
     if (strcmp(lex.val, "do")) {
         unget_lexeme();
         print_err("expected do", 0);
     }
-    
+
     /* process while body */
     emit_comment("WHILE: PROCESS BODY");
     parse_stmt_list();
-    
+
     /* jump back */
     emit_comment("FOR: JUMP BACK");
     emit_jmp(lbl1);
-    
+
     /* loop keyword */
     get_lexeme();
     if (strcmp(lex.val, "loop")) {

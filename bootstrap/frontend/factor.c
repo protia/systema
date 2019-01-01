@@ -22,7 +22,7 @@ expr_t *parse_identifier() {
     get_lexeme();
     /* evaluate */
     expr = alloc_expr();
-    sym = get_sym(lex.val); 
+    sym = get_sym(lex.val);
     if (!sym) {
         print_err("undeclared identifier: %s", lex.val);
         expr->addr = malloc(strlen(lex.val)+1);
@@ -72,39 +72,9 @@ expr_t *parse_str_literal() {
     return expr;
 }
 
-void parse_assembly() {
-    char *line;
-    /* parse assembly */
-    get_lexeme(); 
-    /* parse ( */
-    get_lexeme();
-    if (strcmp(lex.val, "(")) {
-        print_err("expected (", 0);
-        unget_lexeme();
-    }
-    /* parse string literal */
-    get_lexeme();
-    if (lex.type != LEX_STR_LITERAL) {
-        print_err("expected string literal", 0);
-        unget_lexeme();
-    } else {
-        line = malloc(strlen(lex.val)+1);
-        strcpy(line, lex.val+1);
-        line[strlen(line) - 1] = 0;
-        emit_line(line);
-    }
-    /* parse ) */
-    get_lexeme();
-    if (strcmp(lex.val, ")")) {
-        print_err("expected )", 0);
-        unget_lexeme();
-    }
-}
-
 expr_t *parse_factor() {
     int unsignedf;
-    /* factor: parent | unsigned | assembly | identifier |
-               int_literal | str_literal */
+    /* factor: parent | identifier | int_literal | str_literal */
     expr_t *expr;
     /* look ahead */
     get_lexeme();
@@ -113,20 +83,10 @@ expr_t *parse_factor() {
     if (!strcmp(lex.val, "(")) {
         /* parenthesis */
         expr = parse_parent();
-    } else if (!strcmp(lex.val, "unsigned")) {
-        /* unsigned expression */
-        unsignedf = set_unsignedf(1);
-        get_lexeme(); /* unsigned */
-        expr = parse_expr();
-        reset_unsignedf(unsignedf);
-    } else if (!strcmp(lex.val, "assembly")) {
-        /* inline assembly */
-        parse_assembly();
-        expr = alloc_expr();
     } else if (lex.type == LEX_IDENTIFIER) {
         /* encountered identifier */
         expr = parse_identifier();
-    } else if (lex.type == LEX_INT_LITERAL || 
+    } else if (lex.type == LEX_INT_LITERAL ||
                lex.type == LEX_CHAR_LITERAL) {
         /* integer literal */
         expr = parse_int_literal();

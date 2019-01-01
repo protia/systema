@@ -1,4 +1,4 @@
-#include "common.h"
+#include <common.inc>
 
 def parse_file: func()
 begin
@@ -7,7 +7,7 @@ begin
     /* should encounter end of file */
     get_lexeme();
     if lex.type != LEX_EOF then
-        print_err("expected end of file.", NULL);
+        print_err("expected end of file.", 0);
     endif;
     /* flush all strings */
     str_literal_flush();

@@ -74,7 +74,7 @@ begin
         get_lexeme();
         unget_lexeme();
         /* size specified? */
-        if ! strcmp("(", lex.val) then
+        if !strcmp("(", &lex.val) then
             /* expression */
             expr := parse_factor();
         elsif lex.val[0] >= '0' and lex.val[0] <= '9' then
@@ -119,7 +119,7 @@ begin
         type@.complete := 1;
         type@.subcount := 1;
         type@.subtype := parse_type();
-    elsif (sym := get_sym(lex.val)) != NULL then
+    elsif (sym := get_sym(&lex.val)) != NULL then
         /* symbol!  must be of TYPEOF */
         if sym@.type@.specifier == TYPE_TYPEOF then
             /* just inherit the type of the symbol */

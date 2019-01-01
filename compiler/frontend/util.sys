@@ -1,7 +1,6 @@
 #include <common.inc>
 
-def itoa: func(arr: @[byte], num: four)
+def itoa: func(arr: @[byte], num: four) returns four
 begin
-    /* FIXME: I should only use ansi C */
-    sprintf(arr, "%d", num);
+    return sprintf(arr, "%d", num);
 end;

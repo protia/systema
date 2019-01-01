@@ -15,7 +15,7 @@ end;
 def get_new_addr: func(size: four) returns @[byte]
     def ret: @[byte];
 begin
-    ret := malloc(100);
+    ret := malloc(100) as @[byte];
     stack_size := (stack_size + size + 7)&(~7);
     arch_sp_fmt(ret, -stack_size);
     return ret;

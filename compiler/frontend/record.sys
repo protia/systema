@@ -16,7 +16,7 @@ begin
     /* ( */
     get_lexeme();
     if strcmp(&lex.val, "(") then
-        print_err("expected (", NULL);
+        print_err("expected (", 0);
         unget_lexeme();
     endif;
     /* param list */
@@ -30,20 +30,20 @@ begin
             /* read identifier */
             if lex.type == LEX_IDENTIFIER then
                 /* copy identifier */
-                cur@.name := malloc(strlen(&lex.val)+1);
-                strcpy(cur@.name, lex.val);
+                cur@.name := malloc(strlen(&lex.val)+1) as @[byte];
+                strcpy(cur@.name, &lex.val);
 
                 /* read 'as' */
                 get_lexeme();
                 if strcmp(&lex.val, "as") and strcmp(&lex.val, ":") then
-                    print_err("expected 'as' or :", NULL);
+                    print_err("expected 'as' or :", 0);
                     unget_lexeme();
                 endif;
                 /* read type */
                 cur@.type := parse_type();
                 /* type must be complete */
                 if ! cur@.type@.complete then
-                    print_err("incomplete parameter type", NULL);
+                    print_err("incomplete parameter type", 0);
                 endif;
                 /* read comma or ) */
                 get_lexeme();
@@ -53,7 +53,7 @@ begin
                     /* additional parameters are coming */
                     get_lexeme();
                 else
-                    print_err("expected , or )", NULL);
+                    print_err("expected , or )", 0);
                     unget_lexeme();
                 endif;
             elsif ! strcmp(&lex.val, "...") then
@@ -61,17 +61,17 @@ begin
                 /* next lexeme must be ) */
                 get_lexeme();
                 if strcmp(&lex.val, ")") then
-                    print_err("expected  )", NULL);
+                    print_err("expected  )", 0);
                     unget_lexeme();
                 endif;
                 done := 1;
             else
-                print_err("expected identifier or ...", NULL);
+                print_err("expected identifier or ...", 0);
                 unget_lexeme();
                 done := 1;
             endif;
             cur := cur@.sublist;
-        endif;
+        loop;
     endif;
     /* update type structure */
     type@.param_list := top;
@@ -80,5 +80,5 @@ begin
     while count do
         cur@.count := count--;
         cur := cur@.sublist;
-    endif;
+    loop;
 end;

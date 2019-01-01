@@ -9,7 +9,7 @@ begin
     type@.subcount   := 0;
     type@.subtype    := NULL;
     type@.rettype    := NULL;
-    type@.param_list := 0;
+    type@.param_list := NULL;
     return type;
 end;
 

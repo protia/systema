@@ -3,7 +3,7 @@
 set -e
 
 # parameters
-INFILE=
+INFILES=
 OUTFILE=
 ARCH=x86_64
 FORMAT=elf
@@ -16,7 +16,7 @@ for param in $*; do
 	value=`echo $param | awk -F "=" '{printf $2}'`
 	# process property
 	if [ $property = "in" ]; then
-		INFILE=$value
+		INFILES="$INFILES $value"
 	elif [ $property = "out" ]; then
 		OUTFILE=$value
 	elif [ $property = "arch" ]; then
@@ -31,10 +31,10 @@ for param in $*; do
 done
 
 # no input files specified?
-if [ -z "$INFILE" -o -z "$OUTFILE" ]; then
-    echo "Usage: $0 in=<infile> out=<outfile>";
+if [ -z "$INFILES" -o -z "$OUTFILE" ]; then
+    echo "Usage: $0 out=<outfile> (in=<infile>)*";
     exit 5;
 fi;
 
 # link
-gcc -o $OUTFILE $INFILE
+gcc -o $OUTFILE $INFILES

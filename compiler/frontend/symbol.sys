@@ -5,7 +5,7 @@ def head: @sym_t;
 def symtab_init: func()
 begin
     head := NULL;
-end
+end;
 
 def get_sym: func(name: @[byte]) returns @sym_t
     def ptr : @sym_t;
@@ -19,15 +19,16 @@ begin
         else
             ptr := ptr@.next;
         endif;
-    endif;
+    loop;
     return ptr;
 end;
 
 def add_sym: func(name: @[byte], type: @type_t) returns @sym_t
+    def sym: @sym_t;
 begin
-    sym_t *sym := alloc_sym();
+    sym := alloc_sym();
     sym@.next := head;
-    sym@.name := malloc(strlen(name)+1);
+    sym@.name := malloc(strlen(name)+1) as @[byte];
     strcpy(sym@.name, name);
     sym@.val := sym@.name;
     sym@.type := type;
@@ -41,5 +42,5 @@ begin
     /* remove all symbols of current scope */
     while head and head@.scope == get_scope() do
         head := head@.next;
-    endif;
+    loop;
 end;

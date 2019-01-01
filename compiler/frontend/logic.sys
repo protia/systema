@@ -23,7 +23,7 @@ def parse_logic_and: func() returns @expr_t
     def gen_code: four;
 
     /* registers used */
-    def reg     : four
+    def reg     : four;
 
 begin
 
@@ -56,11 +56,12 @@ begin
         res@.type@.specifier := TYPE_WORD;
         res@.type@.complete := 1;
         /* check type 1 */
-        if (op1@.type@.specifier != TYPE_BYTE and
-            op1@.type@.specifier != TYPE_HALF and
-            op1@.type@.specifier != TYPE_WORD and
-            op1@.type@.specifier != TYPE_DOBL and
-            op1@.type@.specifier != TYPE_PTR) {
+        if op1@.type@.specifier != TYPE_BYTE and
+           op1@.type@.specifier != TYPE_HALF and
+           op1@.type@.specifier != TYPE_WORD and
+           op1@.type@.specifier != TYPE_DOBL and
+           op1@.type@.specifier != TYPE_PTR
+        then
             print_err("unsupported types for and", 0);
             err := 1;
         else
@@ -77,11 +78,12 @@ begin
         /* parse second expr */
         op2 := parse_bitwise_or();
         /* check type 2 */
-        if (op2@.type@.specifier != TYPE_BYTE and
-            op2@.type@.specifier != TYPE_HALF and
-            op2@.type@.specifier != TYPE_WORD and
-            op2@.type@.specifier != TYPE_DOBL and
-            op2@.type@.specifier != TYPE_PTR) {
+        if op2@.type@.specifier != TYPE_BYTE and
+           op2@.type@.specifier != TYPE_HALF and
+           op2@.type@.specifier != TYPE_WORD and
+           op2@.type@.specifier != TYPE_DOBL and
+           op2@.type@.specifier != TYPE_PTR
+        then
             print_err("unsupported types for and", 0);
             err := 1;
         elsif ! err then
@@ -131,7 +133,7 @@ begin
         op1 := res;
         /* move to next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := op1;
@@ -162,8 +164,7 @@ def parse_logic_or: func() returns @expr_t
     def gen_code: four;
 
     /* registers used */
-    def reg     : four
-
+    def reg     : four;
 
 begin
 
@@ -187,7 +188,7 @@ begin
     /* lookahead */
     get_lexeme();
     /* or? */
-    while ! strcmp(&lex.val, "or") do
+    while !strcmp(&lex.val, "or") do
         /* generate labels */
         lbl1 := get_new_label();
         lbl2 := get_new_label();
@@ -196,11 +197,12 @@ begin
         res@.type@.specifier := TYPE_WORD;
         res@.type@.complete := 1;
         /* check type 1 */
-        if (op1@.type@.specifier != TYPE_BYTE and
-            op1@.type@.specifier != TYPE_HALF and
-            op1@.type@.specifier != TYPE_WORD and
-            op1@.type@.specifier != TYPE_DOBL and
-            op1@.type@.specifier != TYPE_PTR) {
+        if op1@.type@.specifier != TYPE_BYTE and
+           op1@.type@.specifier != TYPE_HALF and
+           op1@.type@.specifier != TYPE_WORD and
+           op1@.type@.specifier != TYPE_DOBL and
+           op1@.type@.specifier != TYPE_PTR
+        then
             print_err("unsupported types for and", 0);
             err := 1;
         else
@@ -217,11 +219,12 @@ begin
         /* parse second expr */
         op2 := parse_bitwise_or();
         /* check type 2 */
-        if (op2@.type@.specifier != TYPE_BYTE and
-            op2@.type@.specifier != TYPE_HALF and
-            op2@.type@.specifier != TYPE_WORD and
-            op2@.type@.specifier != TYPE_DOBL and
-            op2@.type@.specifier != TYPE_PTR) {
+        if op2@.type@.specifier != TYPE_BYTE and
+           op2@.type@.specifier != TYPE_HALF and
+           op2@.type@.specifier != TYPE_WORD and
+           op2@.type@.specifier != TYPE_DOBL and
+           op2@.type@.specifier != TYPE_PTR
+        then
             print_err("unsupported types for and", 0);
             err := 1;
         elsif ! err then
@@ -271,7 +274,7 @@ begin
         op1 := res;
         /* move to next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := op1;

@@ -12,6 +12,9 @@ expr_t *type_cast(expr_t *before, type_t *new_type) {
         after->literal = 1;
         after->type    = new_type;
         literal_type_cast(before, after);
+        if (from <= TYPE_DOBL && to == TYPE_PTR) {
+            after->addr=NULL; /* not string literal */
+        }
     } else if (type_size(before->type) == type_size(new_type)) {
         /* no need to perform casting */
         after->type    = new_type;

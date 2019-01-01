@@ -104,6 +104,7 @@ begin
     /* dim_type: 'as' type | lambda */
     type := NULL;
     get_lexeme();
+
     if strcmp(&lex.val, "as") and strcmp(&lex.val, ":") then
         unget_lexeme();
         print_err("expected as or :", 0);
@@ -207,10 +208,13 @@ begin
         if strcmp(&lex.val, ";") then
             /* didn't find ; */
             unget_lexeme();
+            stop := 0;
         else
             /* done */
             stop := 1;
         endif;
+    else
+    	stop := 0;
     endif;
 
     /* don't stop? */
@@ -327,8 +331,8 @@ begin
     	    eptr := expr_list;
     	    while !err and iptr@.count do
     	        if dim_type == DIM_DEF then
-    	            /* definition */
-    	            if get_scope() then
+     	            /* definition */
+     	            if get_scope() then
     	                /* in register? */
     	                if loc@.specifier == STORE_REG then
     	                    iptr@.sym@.val := loc@.reg_name;
@@ -410,7 +414,7 @@ begin
     	get_lexeme();
     	if strcmp(&lex.val, ":") then
     	    /* didn't find : */
-    	    print_err("expected :", NULL);
+    	    print_err("expected :", 0);
     	    unget_lexeme();
     	endif;
 #endif
@@ -450,7 +454,7 @@ begin
         get_lexeme();
         if strcmp(&lex.val, ";") then
     	    /* didn't find ; */
-    	    print_err("expected ;", NULL);
+    	    print_err("expected ;", 0);
     	    unget_lexeme();
         endif;
     endif;

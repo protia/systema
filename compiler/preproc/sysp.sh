@@ -5,6 +5,7 @@ set -e
 # parameters
 INFILE=
 OUTFILE=
+PFLAGS=
 
 # loop over parametrs
 for param in $*; do
@@ -16,6 +17,8 @@ for param in $*; do
 		INFILE=$value
 	elif [ $property = "out" ]; then
 		OUTFILE=$value
+	elif [ $property = "inc" ]; then
+		PFLAGS="$PFLAGS -I$value"
 	else
 		echo "Unknown argument: $propery, ignored."
 	fi
@@ -28,4 +31,4 @@ if [ -z "$INFILE" -o -z "$OUTFILE" ]; then
 fi;
 
 # preprocess
-gcc -E -o $OUTFILE -x c $INFILE
+gcc -E $PFLAGS -o $OUTFILE -x c $INFILE

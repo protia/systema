@@ -253,7 +253,8 @@ begin
     while param_list@.count != 0 and ! param_list@.any do
         /* add to symtab */
         if get_sym(param_list@.name) then
-            print_err("identifier already declared", 0);
+            print_err("function parameter %s is already defined",
+                      param_list@.name as eigh);
         else
             /* add sym to symtab */
             sym := add_sym(param_list@.name, param_list@.type);

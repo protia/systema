@@ -11,7 +11,7 @@ def parse_conditional: func() returns @expr_t
     def lbl2 : @[byte];
     /* register */
     def reg  : four;
-begin:
+begin
     /* get accumulator */
     reg := emit_get_reg(REG_ACC, 0);
     /* conditional: logic_or [? expr : conditional] */
@@ -24,11 +24,12 @@ begin:
         lbl1 := get_new_label();
         lbl2 := get_new_label();
         /* expr must be numerical */
-        if (expr@.type@.specifier == TYPE_BYTE or
-            expr@.type@.specifier == TYPE_HALF or
-            expr@.type@.specifier == TYPE_WORD or
-            expr@.type@.specifier == TYPE_DOBL or
-            expr@.type@.specifier == TYPE_PTR) {
+        if expr@.type@.specifier == TYPE_BYTE or
+           expr@.type@.specifier == TYPE_HALF or
+           expr@.type@.specifier == TYPE_WORD or
+           expr@.type@.specifier == TYPE_DOBL or
+           expr@.type@.specifier == TYPE_PTR
+        then
             /* branch if zero */
             emit_load(expr, reg);
             emit_bze(expr@.type, reg, lbl1);
@@ -63,11 +64,12 @@ begin:
         lbl1 := get_new_label();
         lbl2 := get_new_label();
         /* check expr0 value */
-        if (expr@.type@.specifier == TYPE_BYTE or
-            expr@.type@.specifier == TYPE_HALF or
-            expr@.type@.specifier == TYPE_WORD or
-            expr@.type@.specifier == TYPE_DOBL or
-            expr@.type@.specifier == TYPE_PTR) {
+        if expr@.type@.specifier == TYPE_BYTE or
+           expr@.type@.specifier == TYPE_HALF or
+           expr@.type@.specifier == TYPE_WORD or
+           expr@.type@.specifier == TYPE_DOBL or
+           expr@.type@.specifier == TYPE_PTR
+        then
             /* branch if zero */
             emit_load(expr, reg);
             emit_bze(expr@.type, reg, lbl1);

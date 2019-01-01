@@ -163,19 +163,30 @@ typ str_t: record
 dec lex: lexeme_t;
 
 /* C functions */
-#define NULL 0
+#define NULL (0 as @void)
 #define EOF  -1
+#define stdin  __stdinp
+#define stdout __stdoutp
+#define stderr __stderrp
 typ FILE;
-dec stdin:  @FILE;
-dec stdout: @FILE;
-dec stderr: @FILE;
-dec malloc : func(size: four) returns @void;
-dec itoa   : func(arr: @[byte], num: four);
-dec strlen : func(str: @[byte]) returns four;
-dec strcpy : func(str1: @[byte], str2: @[byte]) returns @[byte];
-dec strcat : func(str1: @[byte], str2: @[byte]) returns @[byte];
-dec strcmp : func(str1: @[byte], str2: @[byte]) returns four;
-dec fprintf: func(fd: @FILE, fmt: @[byte], ...) returns four;
+dec __stdinp:  @FILE;
+dec __stdoutp: @FILE;
+dec __stderrp: @FILE;
+dec fopen   : func(fname: @[byte], mode: @[byte]) returns @FILE;
+dec fclose  : func(fd: @FILE) returns four;
+dec printf  : func(fmt: @[byte], ...) returns four;
+dec fprintf : func(fd: @FILE, fmt: @[byte], ...) returns four;
+dec sprintf : func(str: @[byte], fmt: @[byte], count: four) returns four;
+dec fgets   : func(str: @[byte], count: four, fd: @FILE) returns @[byte];
+dec get_char: func(fd: @FILE) returns four;
+dec isspace : func(chr: byte) returns four;
+dec malloc  : func(size: four) returns @void;
+dec itoa    : func(arr: @[byte], num: four);
+dec strlen  : func(str: @[byte]) returns four;
+dec strcpy  : func(str1: @[byte], str2: @[byte]) returns @[byte];
+dec strcat  : func(str1: @[byte], str2: @[byte]) returns @[byte];
+dec strcmp  : func(str1: @[byte], str2: @[byte]) returns four;
+dec strtol  : func(str: @[byte], ptr: @@[byte], base: four) returns four;
 
 /* alloc.sys */
 dec alloc_type      : func() returns @type_t;
@@ -197,8 +208,8 @@ dec get_sym    : func(name: @[byte]) returns @sym_t;
 dec add_sym    : func(name: @[byte], type: @type_t) returns @sym_t;
 dec del_syms   : func();
 
-/* io.sys */
-dec io_init      : func(fin: @FILE);
+/* lex.sys */
+dec lexer_init   : func(fin: @FILE);
 dec get_cur_line : func() returns @[byte];
 dec get_off      : func() returns four;
 dec get_file_name: func() returns @[byte];
@@ -207,8 +218,6 @@ dec get_col      : func() returns four;
 dec get_char     : func() returns four;
 dec next_char    : func() returns four;
 dec unread_char  : func();
-
-/* lex.sys */
 dec isop         : func(str: @[byte]) returns four;
 dec iskeyword    : func(str: @[byte]) returns four;
 dec isnum        : func(chr: byte) returns four;
@@ -225,7 +234,7 @@ dec get_new_addr      : func(size: four) returns @[byte];
 
 /* arch.sys */
 dec arch_init         : func();
-dec arch_sp_fmt       : func(str: @byte, offset: four);
+dec arch_sp_fmt       : func(str: @[byte], offset: four);
 dec arch_get_reg      : func(usage: four, indx: four) returns four;
 dec arch_get_reg_name : func(reg: four, size: four) returns @[byte];
 dec arch_get_reg_size : func(reg_name: @[byte]) returns four;
@@ -437,6 +446,7 @@ dec emit_use_m4_macro   : func(macro_name: @[byte]);
 dec emit_nop            : func();
 
 /* scope.sys */
+dec semantic_init: func();
 dec enter_scope: func();
 dec leave_scope: func();
 dec get_scope  : func() returns four;
@@ -477,10 +487,11 @@ dec parse_stmt_list: func();
 dec parse_record_header: func(type: @type_t);
 
 /* func.sys */
-dec push_recursively: func(expr_list: @expr_list_t, cur_arg: four);
-dec pop_recursively : func(expr_list: @expr_list_t, cur_arg: four);
-dec parse_func_call : func(func_expr: @expr_t) returns @expr_t;
-dec parse_func      : func(sym: @sym_t);
+dec push_recursively : func(expr_list: @expr_list_t, cur_arg: four);
+dec pop_recursively  : func(expr_list: @expr_list_t, cur_arg: four);
+dec parse_func_call  : func(func_expr: @expr_t) returns @expr_t;
+dec parse_func_header: func(type: @type_t);
+dec parse_func       : func(sym: @sym_t);
 
 /* type.sys */
 dec parse_type: func() returns @type_t;

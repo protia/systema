@@ -1,5 +1,35 @@
 #include <common.inc>
 
+def parse_assembly: func()
+    def line: @[byte];
+begin
+    /* parse assembly */
+    get_lexeme();
+    /* parse ( */
+    get_lexeme();
+    if strcmp(&lex.val, "(") then
+        print_err("expected (", 0);
+        unget_lexeme();
+    endif;
+    /* parse string literal */
+    get_lexeme();
+    if lex.type != LEX_STR_LITERAL then
+        print_err("expected string literal", 0);
+        unget_lexeme();
+    else
+        line := malloc(strlen(&lex.val)+1) as @[byte];
+        strcpy(line, &lex.val[1] as @[byte]);
+        line@[strlen(line) - 1] := 0;
+        emit_line(line);
+    endif;
+    /* parse ) */
+    get_lexeme();
+    if strcmp(&lex.val, ")") then
+        print_err("expected )", 0);
+        unget_lexeme();
+    endif;
+end;
+
 def parse_unary_post: func() returns @expr_t
     /* local variables */
     def expr:  @expr_t;
@@ -12,15 +42,16 @@ begin
     /* loop over post operators */
     get_lexeme();
     done := 0;
-    while(! done) {
-        if (! strcmp(&lex.val, "++") or
-            ! strcmp(&lex.val, "--") or
-            ! strcmp(&lex.val, "@")) {
+    while !done do
+        if !strcmp(&lex.val, "++") or
+           !strcmp(&lex.val, "--") or
+           !strcmp(&lex.val, "@")
+        then
             /* copy operator */
-            strcpy(op, lex.val);
+            strcpy(&op, &lex.val);
             /* perform operation */
-            expr := do_unary(expr, op, 1);
-        elsif ! strcmp(&lex.val, "(") then
+            expr := do_unary(expr, &op, 1);
+        elsif !strcmp(&lex.val, "(") then
             /* function call */
             if expr@.type@.specifier != TYPE_FUNC then
                 print_err("error: call to a non-function", 0);
@@ -29,7 +60,7 @@ begin
                 unget_lexeme();
                 expr := parse_func_call(expr);
             endif;
-        elsif ! strcmp(&lex.val, "[") then
+        elsif !strcmp(&lex.val, "[") then
             /* read array index */
             expr1 := parse_expr();
             /* read ] */
@@ -40,17 +71,17 @@ begin
             endif;
             /* resolve array subscript */
             expr := do_binary(expr, "[", expr1);
-        elsif ! strcmp(&lex.val, ".") then
+        elsif !strcmp(&lex.val, ".") then
             /* record member */
             get_lexeme();
             if lex.type != LEX_IDENTIFIER then
-                print_err("expected identifier", NULL);
+                print_err("expected identifier", 0);
                 unget_lexeme();
             else
                 /* enclose the lexeme in an expression */
                 expr1 := alloc_expr();
-                expr1@.addr := malloc(strlen(&lex.val)+1);
-                strcpy(expr1@.addr, lex.val);
+                expr1@.addr := malloc(strlen(&lex.val)+1) as @[byte];
+                strcpy(expr1@.addr, &lex.val);
                 /* resolve record member operation */
                 expr := do_binary(expr, ".", expr1);
             endif;
@@ -60,10 +91,10 @@ begin
             done := 1;
         endif;
         /* next thing */
-        if ! done then
+        if !done then
             get_lexeme();
         endif;
-    endif;
+    loop;
     /* done */
     return expr;
 end;
@@ -73,56 +104,74 @@ def parse_unary_pre: func() returns @expr_t
     def expr: @expr_t;
     def type: @type_t;
     def op  : [10 byte];
+    def unsignedf: four;
 begin
     /* unary_pre: (unary_op unary_pre | unary_post) */
     get_lexeme();
-    if (! strcmp(&lex.val, "++") or
-        ! strcmp(&lex.val, "--") or
-        ! strcmp(&lex.val, "+")  or
-        ! strcmp(&lex.val, "-")  or
-        ! strcmp(&lex.val, "! ")  or
-        ! strcmp(&lex.val, "~")  or
-        ! strcmp(&lex.val, "&")) {
+    if !strcmp(&lex.val, "++") or
+       !strcmp(&lex.val, "--") or
+       !strcmp(&lex.val, "+")  or
+       !strcmp(&lex.val, "-")  or
+       !strcmp(&lex.val, "!") or
+       !strcmp(&lex.val, "~")  or
+       !strcmp(&lex.val, "&")
+    then
+
         /* copy operator */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse next unary_pre expression */
         expr := parse_unary_pre();
         /* perform operation */
-        expr := do_unary(expr, op, 0);
+        expr := do_unary(expr, &op, 0);
 
-    } elsif (!strcmp(&lex.val, "sizeof")) {
+    elsif !strcmp(&lex.val, "sizeof") then
 
         /* parse ( */
         get_lexeme();
-        if (strcmp(&lex.val, "(")) {
+        if strcmp(&lex.val, "(") then
             /* expected ( */
-            print_err("expected (", NULL);
+            print_err("expected (", 0);
             unget_lexeme();
-        }
+        endif;
 
         /* parse a type expression */
-        type = parse_type();
+        type := parse_type();
 
         /* parse ) */
         get_lexeme();
-        if (strcmp(&lex.val, ")")) {
+        if strcmp(&lex.val, ")") then
             /* expected ( */
-            print_err("expected )", NULL);
+            print_err("expected )", 0);
             unget_lexeme();
-        }
+        endif;
 
         /* allocate a temporary holder */
-        expr = alloc_expr();
-        expr->type = alloc_type();
-        expr->type->specifier = TYPE_WORD;
-        expr->type->complete = 1;
-        expr->literal = 1;
-        expr->word_literal_val=type_size(type);
+        expr                   := alloc_expr();
+        expr@.type             := alloc_type();
+        expr@.type@.specifier  := TYPE_WORD;
+        expr@.type@.complete   := 1;
+        expr@.literal          := 1;
+        expr@.word_literal_val := type_size(type);
+
+    elsif !strcmp(&lex.val, "unsigned") then
+
+        /* unsigned expression */
+        unsignedf := set_unsignedf(1);
+        expr := parse_expr();
+        reset_unsignedf(unsignedf);
+
+    elsif !strcmp(&lex.val, "assembly") then
+
+        /* inline assembly */
+        parse_assembly();
+        expr := alloc_expr();
 
     else
+
         /* no unary operator */
         unget_lexeme();
         expr := parse_unary_post();
+
     endif;
     /* done */
     return expr;
@@ -149,7 +198,7 @@ begin
             unget_lexeme();
             done := 1;
         endif;
-    endif;
+    loop;
     /* finished */
     return expr;
 end;
@@ -166,18 +215,19 @@ begin
     /* lookahead */
     get_lexeme();
     /* *, /, or % ? */
-    while (! strcmp(&lex.val, "*") or
-           ! strcmp(&lex.val, "/") or
-           ! strcmp(&lex.val, "%")) {
+    while !strcmp(&lex.val, "*") or
+          !strcmp(&lex.val, "/") or
+          !strcmp(&lex.val, "%")
+    do
         /* mul/div/mod operator */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_cast();
         /* generate code for mul/div/mod operation */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* get next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -197,16 +247,18 @@ begin
     /* lookahead */
     get_lexeme();
     /* + or - ? */
-    while ! strcmp(&lex.val, "+") or ! strcmp(&lex.val, "-") do
+    while !strcmp(&lex.val, "+") or
+          !strcmp(&lex.val, "-")
+    do
         /* add/sub operator */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_muldiv();
         /* generate code for add/sub operation */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* get next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -226,16 +278,18 @@ begin
     /* lookahead */
     get_lexeme();
     /* >> or << ? */
-    while ! strcmp(&lex.val, ">>") or ! strcmp(&lex.val, "<<") do
+    while !strcmp(&lex.val, ">>") or
+          !strcmp(&lex.val, "<<")
+    do
         /* shift operator */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_addsub();
         /* generate code for shifting */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* get next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -255,19 +309,20 @@ begin
     /* lookahead */
     get_lexeme();
     /* relop ? */
-    while (! strcmp(&lex.val, ">") or
-           ! strcmp(&lex.val, ">=") or
-           ! strcmp(&lex.val, "<") or
-           ! strcmp(&lex.val, "<=")) {
+    while !strcmp(&lex.val, ">")  or
+          !strcmp(&lex.val, ">=") or
+          !strcmp(&lex.val, "<")  or
+          !strcmp(&lex.val, "<=")
+    do
         /* relation operator */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_shift();
         /* generate code for relation operator */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* get next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -287,16 +342,18 @@ begin
     /* lookahead */
     get_lexeme();
     /* == or != ? */
-    while ! strcmp(&lex.val, "==") or ! strcmp(&lex.val, "!=") do
+    while !strcmp(&lex.val, "==") or
+          !strcmp(&lex.val, "!=")
+    do
         /* equality */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_relation();
         /* generate code for equality */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* get next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -316,16 +373,16 @@ begin
     /* lookahead */
     get_lexeme();
     /* &? */
-    while ! strcmp(&lex.val, "&") do
+    while !strcmp(&lex.val, "&") do
         /* bitwise and */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_equality();
         /* generate code for bitwise AND'ing */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* move to next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -345,16 +402,16 @@ begin
     /* lookahead */
     get_lexeme();
     /* ^? */
-    while ! strcmp(&lex.val, "^") do
+    while !strcmp(&lex.val, "^") do
         /* bitwise xor */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_bitwise_and();
         /* generate code for bitwise XOR'ing */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* move to next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;
@@ -374,16 +431,16 @@ begin
     /* lookahead */
     get_lexeme();
     /* |? */
-    while ! strcmp(&lex.val, "|") do
+    while !strcmp(&lex.val, "|") do
         /* bitwise or */
-        strcpy(op, lex.val);
+        strcpy(&op, &lex.val);
         /* parse second operand */
         expr2 := parse_bitwise_xor();
         /* generate code for bitwise OR'ing */
-        expr1 := do_binary(expr1, op, expr2);
+        expr1 := do_binary(expr1, &op, expr2);
         /* move to next */
         get_lexeme();
-    endif;
+    loop;
     /* no more */
     unget_lexeme();
     expr := expr1;

@@ -5,51 +5,67 @@ def type_match: func(type1: @type_t, type2: @type_t, strict: four) returns four
     def param_list2: @param_list_t;
     def ret: four;
 begin
-    if type1@.specifier == TYPE_VOID then
-        /* type2 must be void */
-        ret := type2@.specifier == TYPE_VOID;
-    elsif (type1@.specifier >= TYPE_BYTE and
-               type1@.specifier <= TYPE_DOBL) {
+
+    if type1@.specifier == TYPE_VOID or
+       type2@.specifier == TYPE_VOID then
+
+        /* both types must be void */
+        if strict then
+            ret := type1@.specifier == type2@.specifier;
+	else
+	    ret := 1;
+	endif;
+    elsif type1@.specifier >= TYPE_BYTE and
+          type1@.specifier <= TYPE_DOBL then
+
         /* type2 must also be integral */
         ret := type2@.specifier >= TYPE_BYTE and
-              type2@.specifier <= TYPE_DOBL;
+               type2@.specifier <= TYPE_DOBL;
+
     elsif type1@.specifier == TYPE_PTR and
           type2@.specifier == TYPE_PTR then
+
         /* type2 must be pointer to same type */
-        if (type1->subtype == type2->subtype) {
-            return 1;
-        } else {
-            ret = type_match(type1->subtype, type2->subtype, 0);
-        }
-    elsif (type1@.specifier == TYPE_ARRAY and
-            type2@.specifier == TYPE_ARRAY) {
-        if strict then
-            ret := (type1@.subcount == type2@.subcount) and
-                  type_match(type1@.subtype, type2@.subtype, 1);
+        if type1@.subtype == type2@.subtype then
+            ret := 1;
         else
             ret := type_match(type1@.subtype, type2@.subtype, 0);
         endif;
-   } elsif (type1->specifier == TYPE_RECORD &&
-              type2->specifier == TYPE_RECORD) {
-        param_list1 = type1->param_list;
-        param_list2 = type2->param_list;
-        if (param_list1->count == param_list2->count) {
-            ret = 1;
-            while (param_list1->sublist != NULL) {
-                if (!type_match(param_list1->type,
-                                param_list2->type,
-                                strict)) {
-                    ret = 0;
-                }
-                param_list1 = param_list1->sublist;
-                param_list2 = param_list2->sublist;
-            }
-        } else
-            ret = 0;
-        }
+
+    elsif type1@.specifier == TYPE_ARRAY and
+          type2@.specifier == TYPE_ARRAY then
+
+        if strict then
+            ret := (type1@.subcount == type2@.subcount) and
+                   type_match(type1@.subtype, type2@.subtype, 1);
+        else
+            ret := type_match(type1@.subtype, type2@.subtype, 0);
+        endif;
+
+   elsif type1@.specifier == TYPE_RECORD and
+         type2@.specifier == TYPE_RECORD then
+
+        param_list1 := type1@.param_list;
+        param_list2 := type2@.param_list;
+        if param_list1@.count == param_list2@.count then
+            ret := 1;
+            while param_list1@.sublist != NULL do
+                if !type_match(param_list1@.type, param_list2@.type, strict) then
+                    ret := 0;
+                endif;
+                param_list1 := param_list1@.sublist;
+                param_list2 := param_list2@.sublist;
+            loop;
+        else
+            ret := 0;
+        endif;
+
    else
-        /* type checking fails */
+
         ret := 0;
+
    endif;
+
    return ret;
+
 end;

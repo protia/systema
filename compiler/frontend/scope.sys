@@ -1,6 +1,12 @@
 #include <common.inc>
 
-def scope : four := 0;
+def scope : four;
+
+def semantic_init: func()
+begin
+    set_unsignedf(0);
+    scope := 0;
+end;
 
 def enter_scope: func()
 begin
@@ -15,4 +21,4 @@ end;
 def get_scope: func()  returns four
 begin
     return scope;
-end
+end;

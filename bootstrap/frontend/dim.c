@@ -441,7 +441,7 @@ int parse_dim_stmt() {
     get_lexeme();
     if (strcmp(lex.val, ";")) {
         /* didn't find ; */
-        print_err("expected ;", NULL);
+        print_err("expected ;", 0);
         unget_lexeme();
     }
 

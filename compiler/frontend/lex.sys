@@ -1,118 +1,249 @@
 #include <common.inc>
 
-int has_ungetl := 0; /* unget lexeme   */
-lexeme_t lex;       /* current lexeme */
-int state := 0;
+def cur_line   : [400 byte];
+def line_size  : four;
+def off        : four;
 
-char *ops[] := {
-    "[",
-    "]",
-    "(",
-    ")",
-    "{",
-    "endif;",
-    ";",
-    ".",
-    ",",
-    "..",
-    "...",
-    "++",
-    "--",
-    "&",
-    "@",
-    "*",
-    "+",
-    "-",
-    "~",
-    "! ",
-    "/",
-    "%",
-    "<<",
-    ">>",
-    "<",
-    ">",
-    "<=",
-    ">=",
-    "==",
-    "!=",
-    "^",
-    "|",
-    "?",
-    ":",
-    "::=",
-    "*:=",
-    "/:=",
-    "%:=",
-    "+:=",
-    "-:=",
-    "<<=",
-    ">>=",
-    "&:=",
-    "^:=",
-    "|:=",
-    ":=",
-endif;;
+def file_name  : @[byte];
+def lineno     : four;
+def col        : four;
+def last_col   : four;
 
-char *keywords[] := {
-    "def",
-    "dec",
-    "typ",
-    "sub",
-    "local",
-    "as",
-    "in",
-    "code",
-    "rodata",
-    "data",
-    "bss",
-    "stack",
-    "register",
-    "byte",
-    "twin",
-    "four",
-    "eigh",
-    "func",
-    "text",
-    "record",
-    "returns",
-    "begin",
-    "assembly",
-    "sizeof",
-    "typeof",
-    "if",
-    "unsigned",
-    "and",
-    "or",
-    "then",
-    "elsif",
-    "else",
-    "endif",
-    "case",
-    "when",
-    "others",
-    "esac",
-    "for",
-    "from",
-    "down",
-    "to",
-    "step",
-    "do",
-    "while",
-    "loop",
-    "return",
-    "end",
-endif;;
+def fd         : @FILE;
+def has_ungetc : four;
+def last_chr   : four;
+def has_ungetl : four;
+
+def lex        : lexeme_t;
+def state      : four;
+
+def ops        : [200 @[byte]];
+def keywords   : [200 @[byte]];
+
+def lexer_init: func(set_fd: @FILE)
+    def i: four;
+begin
+
+    /* initialize ops */
+    i := 0;
+    ops[i++] := "[";
+    ops[i++] := "]";
+    ops[i++] := "(";
+    ops[i++] := ")";
+    ops[i++] := "{";
+    ops[i++] := "}";
+    ops[i++] := ";";
+    ops[i++] := ".";
+    ops[i++] := ",";
+    ops[i++] := "..";
+    ops[i++] := "...";
+    ops[i++] := "++";
+    ops[i++] := "--";
+    ops[i++] := "&";
+    ops[i++] := "@";
+    ops[i++] := "*";
+    ops[i++] := "+";
+    ops[i++] := "-";
+    ops[i++] := "~";
+    ops[i++] := "!";
+    ops[i++] := "/";
+    ops[i++] := "%";
+    ops[i++] := "<<";
+    ops[i++] := ">>";
+    ops[i++] := "<";
+    ops[i++] := ">";
+    ops[i++] := "<=";
+    ops[i++] := ">=";
+    ops[i++] := "==";
+    ops[i++] := "!=";
+    ops[i++] := "^";
+    ops[i++] := "|";
+    ops[i++] := "?";
+    ops[i++] := ":";
+    ops[i++] := ":=";
+    ops[i++] := "*=";
+    ops[i++] := "/=";
+    ops[i++] := "%=";
+    ops[i++] := "+=";
+    ops[i++] := "-=";
+    ops[i++] := "<<=";
+    ops[i++] := ">>=";
+    ops[i++] := "&=";
+    ops[i++] := "^=";
+    ops[i++] := "|=";
+    ops[i++] := "=";
+    ops[i++] := NULL;
+
+    /* initialize keywords */
+    i := 0;
+    keywords[i++] := "def";
+    keywords[i++] := "dec";
+    keywords[i++] := "typ";
+    keywords[i++] := "sub";
+    keywords[i++] := "local";
+    keywords[i++] := "as";
+    keywords[i++] := "in";
+    keywords[i++] := "code";
+    keywords[i++] := "rodata";
+    keywords[i++] := "data";
+    keywords[i++] := "bss";
+    keywords[i++] := "stack";
+    keywords[i++] := "register";
+    keywords[i++] := "byte";
+    keywords[i++] := "twin";
+    keywords[i++] := "four";
+    keywords[i++] := "eigh";
+    keywords[i++] := "func";
+    keywords[i++] := "text";
+    keywords[i++] := "record";
+    keywords[i++] := "returns";
+    keywords[i++] := "begin";
+    keywords[i++] := "assembly";
+    keywords[i++] := "sizeof";
+    keywords[i++] := "typeof";
+    keywords[i++] := "if";
+    keywords[i++] := "unsigned";
+    keywords[i++] := "and";
+    keywords[i++] := "or";
+    keywords[i++] := "then";
+    keywords[i++] := "elsif";
+    keywords[i++] := "else";
+    keywords[i++] := "endif";
+    keywords[i++] := "case";
+    keywords[i++] := "when";
+    keywords[i++] := "others";
+    keywords[i++] := "esac";
+    keywords[i++] := "for";
+    keywords[i++] := "from";
+    keywords[i++] := "down";
+    keywords[i++] := "to";
+    keywords[i++] := "step";
+    keywords[i++] := "do";
+    keywords[i++] := "while";
+    keywords[i++] := "loop";
+    keywords[i++] := "return";
+    keywords[i++] := "end";
+    keywords[i++] := NULL;
+
+    /* initialize line info */
+    strcpy(&cur_line, "");
+    line_size := 0;
+    off := 0;
+    col := 0;
+    last_col := 0;
+
+    /* initialize file info */
+    file_name := "dumb.c";
+    lineno := 0;
+    fd := set_fd;
+
+    /* initialize unget info */
+    has_ungetc := 0;
+    has_ungetl := 0;
+
+end;
+
+def get_cur_line: func() returns @[byte]
+begin
+    return &cur_line;
+end;
+
+def get_off: func() returns four
+begin
+    return off;
+end;
+
+def get_file_name: func() returns @[byte]
+begin
+    return file_name;
+end;
+
+def get_lineno: func() returns four
+begin
+    return lineno;
+end;
+
+def get_col: func() returns four
+begin
+    return col;
+end;
+
+def get_char: func() returns four
+    def ret : four;
+    def i   : four;
+    def eptr: @[byte];
+begin
+    ret := 0;
+    if line_size == off then
+        /* we need to read new line */
+        if fgets(&cur_line, MAX_BUF-1, fd) == NULL then
+            /* EOF */
+            ret := EOF;
+        else
+            /* hash lines have special treatment */
+            if cur_line[0] == '#' then
+                /* parse hash line */
+                lineno := strtol(&cur_line[2] as @[byte], &eptr, 10)-1;
+                /* get file name */
+                file_name := malloc(1024) as @[byte];
+                i := 2;
+                while eptr@[i] != '"' do
+                    file_name@[i-2] := eptr@[i];
+                    i++;
+                loop;
+                file_name@[i] := 0;
+                /* get next token */
+                ret := get_char();
+            else
+                line_size := strlen(&cur_line);
+                last_col := col;
+                off := 1;
+                col := 1;
+                lineno++;
+                ret := cur_line[0];
+            endif;
+        endif;
+    else
+        ret := cur_line[off];
+        off++;
+        col++;
+    endif;
+    return ret;
+end;
+
+def next_char: func() returns four
+begin
+    if has_ungetc == 1 then
+        has_ungetc := 0;
+        col++;
+    else
+        last_chr := get_char();
+    endif;
+    return last_chr;
+end;
+
+def unread_char: func()
+begin
+    col--;
+    if col == 0 then
+        col := last_col;
+        lineno--;
+    endif;
+    has_ungetc := 1;
+end;
 
 def isop: func(str: @[byte]) returns four
     def i    : four;
     def found: four;
 begin
     found := 0;
-    for (i := 0; i < sizeof(ops)/sizeof(ops[i]) and ! found; i++) {
-        if ! strcmp(ops[i], str) then
+    i := 0;
+    while !found and ops[i] != NULL do
+        if strcmp(ops[i], str) == 0 then
             found := 1;
         endif;
-    endif;
+        i++;
+    loop;
     return found;
 end;
 
@@ -121,11 +252,13 @@ def iskeyword: func(str: @[byte]) returns four
     def found: four;
 begin
     found := 0;
-    for (i := 0; i < sizeof(keywords)/sizeof(keywords[i])and! found; i++) {
+    i := 0;
+    while !found and keywords[i] != NULL do
         if ! strcmp(keywords[i], str) then
             found := 1;
         endif;
-    endif;
+    	i++;
+    loop;
     return found;
 end;
 
@@ -171,7 +304,7 @@ begin
         /* white space? */
         while isspace(chr) do
             chr := next_char();
-        endif;
+        loop;
         /* lexeme contains at least this first char */
         lex.val[0] := chr;
         lex.val[1] := 0;
@@ -180,7 +313,7 @@ begin
         /* start at unknown state */
         state := STATE_START;
         /* loop over input characters to read full lexeme */
-        while(! f /* ! done yet */) {
+        while  !f /* ! done yet */ do
             /* check chr */
             case state
                 when STATE_START:
@@ -193,7 +326,7 @@ begin
                     elsif chr == '/' then
                         /* comment or division */
                         state := STATE_COMMENT;
-                    elsif isop(lex.val) then
+                    elsif isop(&lex.val) then
                         /* operator */
                         state := STATE_OP;
                     elsif isnum(chr) then
@@ -209,7 +342,6 @@ begin
                         /* invalid token */
                         f := 1;
                     endif;
-                    break;
                 when STATE_CHAR:
                     if (pos == 2 and ! (lex.val[1] == '\\')) or pos == 3 then
                         if chr != '\'' then
@@ -226,7 +358,6 @@ begin
                         unread_char();
                         f := 1;
                     endif;
-                    break;
                 when STATE_STRING:
                     if chr == '\"' and ! escape then
                         /* done */
@@ -235,8 +366,7 @@ begin
                         /* invalid token */
                         unread_char();
                         f := 1;
-                    elsif chr == '
-' then
+                    elsif chr == '\n' then
                         /* invalid token */
                         unread_char();
                         f := 1;
@@ -246,13 +376,12 @@ begin
                     elsif chr == '\\' then
                         escape := 1;
                     endif;
-                    break;
                 when STATE_COMMENT:
                     if pos == 1 then
                         /* time to decide */
                         if chr == '/' or chr == '*' then
                             /* comment -- no special handling */
-                        elsif chr == ':=' then
+                        elsif chr == '=' then
                             /* /:= operator */
                             f := 2;
                         else
@@ -261,47 +390,52 @@ begin
                             f := 2;
                         endif;
                     else
-                        if (lex.val[1] == '*' and
-                            chr == '/' and
-                            lex.val[pos-1] == '*') {
+                        if  lex.val[1]     == '*' and
+                            chr            == '/' and
+                            lex.val[pos-1] == '*'
+                        then
                             /* closing of multi-line comment */
                             f := 2;
-                        elsif (lex.val[1] == '/' and
-                                   chr == '\n') {
+                        elsif lex.val[1] == '/' and
+                              chr        == '\n'
+                        then
                             /* closing of single-line comment */
                             f := 2;
-                        elsif lex.val[1] == '*' and chr == EOF then
+                        elsif lex.val[1] == '*' and
+                              chr        == EOF
+                        then
                             /* invalid token */
                             unread_char();
                             f := 1;
                         endif;
                     endif;
-                    break;
                 when STATE_OP:
                     /* append char and test */
                     lex.val[pos] := chr;
                     lex.val[pos+1] := 0;
-                    if ! isop(lex.val) then
+                    if !isop(&lex.val) then
                         /* done */
                         unread_char();
                         f := 2;
                     endif;
-                    break;
                 when STATE_ALPHA:
                     if ! isnondigit(chr) and ! isnum(chr) then
                         /* done */
                         unread_char();
                         f := 2;
                     endif;
-                    break;
                 when STATE_NUM:
                     if ! isnum(chr) then
-                        if ((chr == 'o' or chr == 'O') and
-                            pos == 1 and lex.val[0] == '0') {
+                        if  (chr == 'o' or chr == 'O') and
+                            pos == 1 and
+                            lex.val[0] == '0'
+                        then
                             /* octal number */
                             state := STATE_OCT;
-                        elsif ((chr == 'x' or chr == 'X') and
-                            pos == 1 and lex.val[0] == '0') {
+                        elsif (chr == 'x' or chr == 'X') and
+                              pos == 1 and
+                              lex.val[0] == '0'
+                        then
                             /* hexadecimal number */
                             state := STATE_HEX;
                         else
@@ -310,7 +444,6 @@ begin
                             f := 2;
                         endif;
                     endif;
-                    break;
                 when STATE_OCT:
                     if ! isoct(chr) then
                         unread_char();
@@ -323,7 +456,6 @@ begin
                             f := 1;
                         endif;
                     endif;
-                    break;
                 when STATE_HEX:
                     if ! ishex(chr) then
                         unread_char();
@@ -336,12 +468,10 @@ begin
                             f := 1;
                         endif;
                     endif;
-                    break;
                 when STATE_EOF:
                     /* done */
                     f := 2;
-                    break;
-            endif;
+            esac;
             /* what's next? */
             if f == 0 then
                 /* store chr and move to next */
@@ -355,7 +485,7 @@ begin
                     pos := 0;
                 endif;
                 lex.type := LEX_INVALID;
-                print_err("invalid token: %s", lex.val);
+                print_err("invalid token: %s", &lex.val as eigh);
             else
                 /* append to token if string or char */
                 if state == STATE_CHAR or state == STATE_STRING then
@@ -365,7 +495,7 @@ begin
                 elsif state == STATE_COMMENT then
                     /* update lexeme value depending on state */
                     if pos == 1 then
-                        if chr == ':=' then
+                        if chr == '=' then
                             lex.val[pos++] := chr;
                         endif;
                     else
@@ -382,13 +512,11 @@ begin
                     lex.val[pos] := 0;
                 endif;
                 /* determine type of lexeme */
-                switch(state) {
+                case state
                     when STATE_CHAR:
                         lex.type := LEX_CHAR_LITERAL;
-                        break;
                     when STATE_STRING:
                         lex.type := LEX_STR_LITERAL;
-                        break;
                     when STATE_COMMENT:
                         if lex.val[1] == '*' or lex.val[1] == '/' then
                             lex.type := LEX_COMMENT;
@@ -396,28 +524,22 @@ begin
                         else
                             lex.type := LEX_OP;
                         endif;
-                        break;
                     when STATE_OP:
                         lex.type := LEX_OP;
-                        break;
                     when STATE_ALPHA:
-                        if iskeyword(lex.val) then
+                        if iskeyword(&lex.val) then
                             lex.type := LEX_KEYWORD;
                         else
                             lex.type := LEX_IDENTIFIER;
                         endif;
-                        break;
-                    when STATE_NUM:
-                    when STATE_OCT:
-                    when STATE_HEX:
+                    when STATE_NUM, STATE_OCT, STATE_HEX:
                         lex.type := LEX_INT_LITERAL;
-                        break;
                     when STATE_EOF:
                         lex.type := LEX_EOF;
-                        break;
-                endif;
+                esac;
             endif;
-        endif;
+        loop;
+        //fprintf(stderr, "lexeme: %s\n", &lex.val);
     endif;
 end;
 

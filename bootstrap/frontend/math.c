@@ -3,6 +3,35 @@
 
 #include "common.h"
 
+void parse_assembly() {
+    char *line;
+    /* parse assembly */
+    get_lexeme();
+    /* parse ( */
+    get_lexeme();
+    if (strcmp(lex.val, "(")) {
+        print_err("expected (", 0);
+        unget_lexeme();
+    }
+    /* parse string literal */
+    get_lexeme();
+    if (lex.type != LEX_STR_LITERAL) {
+        print_err("expected string literal", 0);
+        unget_lexeme();
+    } else {
+        line = malloc(strlen(lex.val)+1);
+        strcpy(line, lex.val+1);
+        line[strlen(line) - 1] = 0;
+        emit_line(line);
+    }
+    /* parse ) */
+    get_lexeme();
+    if (strcmp(lex.val, ")")) {
+        print_err("expected )", 0);
+        unget_lexeme();
+    }
+}
+
 expr_t *parse_unary_post() {
     expr_t *expr, *expr1;
     int done = 0;
@@ -72,6 +101,7 @@ expr_t *parse_unary_pre() {
     expr_t *expr;
     type_t *type;
     char op[10];
+    int unsignedf;
     /* unary_pre: (unary_op unary_pre | unary_post) */
     get_lexeme();
     if (!strcmp(lex.val, "++") ||
@@ -117,11 +147,25 @@ expr_t *parse_unary_pre() {
         expr->literal = 1;
         expr->word_literal_val=type_size(type);
 
+    } else if (!strcmp(lex.val, "unsigned")) {
+
+        /* unsigned expression */
+        unsignedf = set_unsignedf(1);
+        expr = parse_expr();
+        reset_unsignedf(unsignedf);
+
+    } else if (!strcmp(lex.val, "assembly")) {
+
+        /* inline assembly */
+        parse_assembly();
+        expr = alloc_expr();
+
     } else {
 
         /* no unary operator */
         unget_lexeme();
         expr = parse_unary_post();
+
     }
     /* done */
     return expr;

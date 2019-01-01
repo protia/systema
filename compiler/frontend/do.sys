@@ -9,19 +9,7 @@ begin
     if ! dest@.lvalue then
         print_err("operand must be lvalue", 0);
     elsif ! type_match(src@.type, dest@.type, 1) then
-        if src@.type@.specifier  >= TYPE_BYTE and
-           src@.type@.specifier  <= TYPE_DOBL and
-           src@.literal          == 1         and
-           src@.byte_literal_val == 0         and
-           src@.half_literal_val == 0         and
-           src@.word_literal_val == 0         and
-           src@.long_literal_val == 0         and
-           dest@.type@.specifier == TYPE_PTR
-        then
-            /* special case: pointer := null */
-        else
-            print_err("operands must be of the same type", 0);
-        endif;
+        print_err("operands must be of the same type", 0);
     else
         /* check if casting is needed */
         if src@.type@.specifier != dest@.type@.specifier then
@@ -113,7 +101,7 @@ begin
     elsif ! strcmp(op, "-") then
         /* perform subtraction from zero */
         ret := do_binary(expr0, "-", expr);
-    elsif ! strcmp(op, "! ") then
+    elsif ! strcmp(op, "!") then
         /* allocate a temporary holder */
         tmp := alloc_expr();
         tmp@.type := expr@.type;
@@ -328,6 +316,7 @@ begin
                     cur := cur@.sublist;
                 endif;
             loop;
+
             /* found? */
             if found then
                 /* load the address of the record to
@@ -379,9 +368,9 @@ begin
         endif;
 
     elsif op1@.type@.specifier >= TYPE_BYTE and
-          op1@.type@.specifier <= TYPE_PTR  and
+          op1@.type@.specifier <= TYPE_DOBL and
           op2@.type@.specifier >= TYPE_BYTE and
-          op2@.type@.specifier <= TYPE_PTR
+          op2@.type@.specifier <= TYPE_DOBL
     then
 
         /* two operands are integral */
@@ -540,7 +529,7 @@ begin
             op_ptr := op2;
             op_incr := op1;
             /* this swapping can't happen in subtraction */
-            if ! strcmp(op, "-") then
+            if !strcmp(op, "-") then
                 print_err("can't subtract a pointer from integer", 0);
             endif;
         endif;
@@ -557,7 +546,7 @@ begin
         endif;
 
         /* subtype must be complete */
-        if ! subtype_size@.long_literal_val then
+        if !subtype_size@.long_literal_val then
             print_err("pointer subtype must be complete or void", 0);
         endif;
 
@@ -588,7 +577,7 @@ begin
 
         /* operation on two pointers */
         if ! type_match(op1@.type, op2@.type, 1) then
-            print_err("pointers must point to the same type", NULL);
+            print_err("pointers must point to the same type", 0);
         endif;
 
         /* get the size of the subtype of the ptr */
@@ -598,7 +587,7 @@ begin
         subtype_size@.long_literal_val:=type_size(op1@.type@.subtype);
 
         /* subtype must be complete */
-        if ! subtype_size@.long_literal_val then
+        if !strcmp(op, "-") and !subtype_size@.long_literal_val then
             print_err("pointer subtype must be complete or void", 0);
         endif;
 
