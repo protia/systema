@@ -1,0 +1,22 @@
+#include <common.inc>
+
+def stack_size: four;
+
+def init_stack_frame: func()
+begin
+    stack_size := 0;
+end;
+
+def get_stack_size: func() returns four
+begin
+    return stack_size;
+end;
+
+def get_new_addr: func(size: four) returns @[byte]
+    def ret: @[byte];
+begin
+    ret := malloc(100);
+    stack_size := (stack_size + size + 7)&(~7);
+    arch_sp_fmt(ret, -stack_size);
+    return ret;
+end;

@@ -1,0 +1,144 @@
+#include <common.inc>
+
+def parse_type: func() returns @type_t
+    /* local variables */
+    def type: @type_t;
+    def expr: @expr_t;
+    def sym : @sym_t;
+begin
+    /* type: type_specifier type_modifiers */
+    type := alloc_type();
+    /* type specifier */
+    get_lexeme();
+    if ! strcmp(&lex.val, "void") then
+        /* void type */
+        type@.specifier := TYPE_VOID;
+        type@.complete := 0;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "byte") then
+        /* byte type */
+        type@.specifier := TYPE_BYTE;
+        type@.complete := 1;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "twin") then
+        /* half type */
+        type@.specifier := TYPE_HALF;
+        type@.complete := 1;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "four") then
+        /* word type */
+        type@.specifier := TYPE_WORD;
+        type@.complete := 1;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "eigh") then
+        /* dobl type */
+        type@.specifier := TYPE_DOBL;
+        type@.complete := 1;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "func") then
+        /* func type */
+        type@.specifier := TYPE_FUNC;
+        type@.complete := 0;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+        parse_func_header(type);
+    elsif ! strcmp(&lex.val, "record") then
+        type@.specifier := TYPE_RECORD;
+        type@.complete := 1;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+        parse_record_header(type);
+    elsif ! strcmp(&lex.val, "text") then
+        /* string type */
+        type@.specifier := TYPE_PTR;
+        type@.complete := 1;
+        type@.subcount := 1;
+        type@.subtype := alloc_type();
+        type@.subtype@.specifier := TYPE_ARRAY;
+        type@.subtype@.subcount := 0;
+        type@.subtype@.complete := 0;
+        type@.subtype@.subtype := alloc_type();
+        type@.subtype@.subtype@.specifier := TYPE_BYTE;
+        type@.subtype@.subtype@.complete := 1;
+        type@.subtype@.subtype@.subcount := 0;
+        type@.subtype@.subtype@.subtype := NULL;
+    elsif ! strcmp(&lex.val, "[") then
+        /* array */
+        type@.specifier := TYPE_ARRAY;
+        /* look ahead */
+        get_lexeme();
+        unget_lexeme();
+        /* size specified? */
+        if ! strcmp("(", lex.val) then
+            /* expression */
+            expr := parse_factor();
+        elsif lex.val[0] >= '0' and lex.val[0] <= '9' then
+            /* numerical */
+            expr := parse_factor();
+        else
+            expr := NULL;
+        endif;
+        /* evaluate size */
+        if expr then
+            /* expression must be literal word */
+            if ! expr@.literal then
+                print_err("array size must be literal", 0);
+                type@.subcount := 0;
+            elsif expr@.type@.specifier != TYPE_WORD then
+                print_err("array size must be an integral word", 0);
+                type@.subcount := 0;
+            else
+                type@.subcount := expr@.word_literal_val;
+            endif;
+            type@.complete := 1;
+        else
+            /* size is ! specified */
+            type@.subcount := 0;
+            type@.complete := 0;
+        endif;
+        /* subtype */
+        type@.subtype := parse_type();
+        /* inner type must be completely specified */
+        if ! type@.subtype@.complete then
+            print_err("inner array type must be completely specified",0);
+        endif;
+        /* ] */
+        get_lexeme();
+        if strcmp(&lex.val, "]") then
+           print_err("expected ]",0);
+           unget_lexeme();
+        endif;
+    elsif ! strcmp(&lex.val, "@") then
+        /* pointer */
+        type@.specifier := TYPE_PTR;
+        type@.complete := 1;
+        type@.subcount := 1;
+        type@.subtype := parse_type();
+    elsif (sym := get_sym(lex.val)) != NULL then
+        /* symbol!  must be of TYPEOF */
+        if sym@.type@.specifier == TYPE_TYPEOF then
+            /* just inherit the type of the symbol */
+            type := sym@.type@.subtype;
+        else
+            print_err("symbol used as a type must be declared as a type",0);
+            type@.specifier := TYPE_VOID;
+            type@.complete := 0;
+            type@.subcount := 0;
+            type@.subtype := NULL;
+        endif;
+    else
+        /* error? */
+        type@.specifier := TYPE_VOID;
+        type@.complete := 0;
+        type@.subcount := 0;
+        type@.subtype := NULL;
+        print_err("expected type specifier", 0);
+    endif;
+    /* finished */
+    return type;
+end;

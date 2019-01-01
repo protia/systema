@@ -1,0 +1,144 @@
+#include <common.inc>
+
+def parse_parent: func() returns @expr_t
+    def expr: @expr_t;
+begin
+    get_lexeme(); /* ( */
+    expr := parse_expr();
+    get_lexeme(); /* ) */
+    if strcmp(&lex.val, ")") then
+        print_err("expected )", 0);
+        unget_lexeme();
+    endif;
+    return expr;
+end;
+
+def parse_identifier: func() returns @expr_t
+    def expr: @expr_t;
+    def sym:  @sym_t;
+begin
+    /* create expression from identifier */
+    get_lexeme();
+    /* evaluate */
+    expr := alloc_expr();
+    sym := get_sym(&lex.val);
+    if sym == NULL then
+        print_err("undeclared identifier: %s", &lex.val as eigh);
+        expr@.addr := malloc(strlen(&lex.val)+1) as @[byte];
+        strcpy(expr@.addr, &lex.val as @[byte]);
+     else
+        expr@.addr := malloc(strlen(sym@.val)+1) as @[byte];
+        strcpy(expr@.addr, &sym@.val as @[byte]);
+        expr@.type := sym@.type;
+    endif;
+    expr@.lvalue := 1;
+    return expr;
+end;
+
+def parse_int_literal: func() returns @expr_t
+    def expr: @expr_t;
+begin
+    /* create literal expression from integer literal */
+    get_lexeme();
+    /* create expr structure */
+    expr := alloc_expr();
+    expr@.type@.specifier := TYPE_WORD;
+    expr@.type@.complete  := 1;
+    expr@.literal         := 1;
+    expr@.word_literal_val := eval_literal_int(&lex.val);
+    return expr;
+end;
+
+def parse_str_literal: func() returns @expr_t
+    def expr: @expr_t;
+begin
+    /* create literal expression from string literal */
+    get_lexeme();
+    /* create expr structure */
+    expr := alloc_expr();
+    expr@.type@.specifier := TYPE_PTR;
+    expr@.type@.complete := 1;
+    expr@.type@.subcount := 1;
+    expr@.type@.subtype := alloc_type();
+    expr@.type@.subtype@.specifier := TYPE_ARRAY;
+    expr@.type@.subtype@.subcount := 0;
+    expr@.type@.subtype@.complete := 0;
+    expr@.type@.subtype@.subtype := alloc_type();
+    expr@.type@.subtype@.subtype@.specifier := TYPE_BYTE;
+    expr@.type@.subtype@.subtype@.complete := 1;
+    expr@.type@.subtype@.subtype@.subcount := 0;
+    expr@.type@.subtype@.subtype@.subtype := NULL;
+    expr@.literal := 1;
+    expr@.addr := add_str_literal(&lex.val);
+    return expr;
+end;
+
+def parse_assembly: func()
+    def line: @[byte];
+begin
+    /* parse assembly */
+    get_lexeme();
+    /* parse ( */
+    get_lexeme();
+    if strcmp(&lex.val, "(") then
+        print_err("expected (", 0);
+        unget_lexeme();
+    endif;
+    /* parse string literal */
+    get_lexeme();
+    if lex.type != LEX_STR_LITERAL then
+        print_err("expected string literal", 0);
+        unget_lexeme();
+    else
+        line := malloc(strlen(&lex.val)+1) as @[byte];
+        strcpy(line, &lex.val[1] as @[byte]);
+        line@[strlen(line) - 1] := 0;
+        emit_line(line);
+    endif;
+    /* parse ) */
+    get_lexeme();
+    if strcmp(&lex.val, ")") then
+        print_err("expected )", 0);
+        unget_lexeme();
+    endif;
+end;
+
+def parse_factor: func() returns @expr_t
+    def expr     : @expr_t;
+    def unsignedf: four;
+begin
+    /* factor: parent | unsigned | assembly | identifier |
+               int_literal | str_literal */
+    /* look ahead */
+    get_lexeme();
+    unget_lexeme();
+    /* parse according to type */
+    if ! strcmp(&lex.val, "(") then
+        /* parenthesis */
+        expr := parse_parent();
+    elsif ! strcmp(&lex.val, "unsigned") then
+        /* unsigned expression */
+        unsignedf := set_unsignedf(1);
+        get_lexeme(); /* unsigned */
+        expr := parse_expr();
+        reset_unsignedf(unsignedf);
+    elsif ! strcmp(&lex.val, "assembly") then
+        /* inline assembly */
+        parse_assembly();
+        expr := alloc_expr();
+    elsif lex.type == LEX_IDENTIFIER then
+        /* encountered identifier */
+        expr := parse_identifier();
+    elsif lex.type == LEX_INT_LITERAL or lex.type == LEX_CHAR_LITERAL then
+        /* integer literal */
+        expr := parse_int_literal();
+    elsif lex.type == LEX_STR_LITERAL then
+        /* string literal */
+        expr := parse_str_literal();
+    else
+        print_err("expected identifier, literal, or (", 0);
+        expr := alloc_expr();
+        get_lexeme();
+    endif;
+    return expr;
+end;

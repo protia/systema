@@ -1,0 +1,84 @@
+#include <common.inc>
+
+def parse_record_header: func(type: @type_t)
+    /* local variables */
+    def cur  : @param_list_t;
+    def top  : @param_list_t;
+    def done : four;
+    def count: four;
+begin
+    /* initialize flags */
+    done  := 0;
+    count := 0;
+    /* initialize pointers */
+    cur := alloc_param_list();
+    top := cur;
+    /* ( */
+    get_lexeme();
+    if strcmp(&lex.val, "(") then
+        print_err("expected (", NULL);
+        unget_lexeme();
+    endif;
+    /* param list */
+    get_lexeme();
+    if strcmp(&lex.val, ")") then
+        while ! done do
+            /* additional parameter */
+            cur@.sublist := alloc_param_list();
+            cur@.type := alloc_type();
+            count++;
+            /* read identifier */
+            if lex.type == LEX_IDENTIFIER then
+                /* copy identifier */
+                cur@.name := malloc(strlen(&lex.val)+1);
+                strcpy(cur@.name, lex.val);
+
+                /* read 'as' */
+                get_lexeme();
+                if strcmp(&lex.val, "as") and strcmp(&lex.val, ":") then
+                    print_err("expected 'as' or :", NULL);
+                    unget_lexeme();
+                endif;
+                /* read type */
+                cur@.type := parse_type();
+                /* type must be complete */
+                if ! cur@.type@.complete then
+                    print_err("incomplete parameter type", NULL);
+                endif;
+                /* read comma or ) */
+                get_lexeme();
+                if ! strcmp(&lex.val, ")") then
+                    done := 1;
+                elsif ! strcmp(&lex.val, ",") then
+                    /* additional parameters are coming */
+                    get_lexeme();
+                else
+                    print_err("expected , or )", NULL);
+                    unget_lexeme();
+                endif;
+            elsif ! strcmp(&lex.val, "...") then
+                cur@.any  := 1;
+                /* next lexeme must be ) */
+                get_lexeme();
+                if strcmp(&lex.val, ")") then
+                    print_err("expected  )", NULL);
+                    unget_lexeme();
+                endif;
+                done := 1;
+            else
+                print_err("expected identifier or ...", NULL);
+                unget_lexeme();
+                done := 1;
+            endif;
+            cur := cur@.sublist;
+        endif;
+    endif;
+    /* update type structure */
+    type@.param_list := top;
+    /* recalculate size */
+    cur := top;
+    while count do
+        cur@.count := count--;
+        cur := cur@.sublist;
+    endif;
+end;

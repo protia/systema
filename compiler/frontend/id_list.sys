@@ -1,0 +1,61 @@
+#include <common.inc>
+
+def parse_id_list: func() returns @id_list_t
+    def done : four;
+    def count: four;
+    def sym  : @sym_t;
+begin
+    /* initialize flags */
+    done := 0;
+    count := 0;
+    /* id_list: identifier (',' id_list | lambda) */
+    id_list_t *top := alloc_id_list();
+    id_list_t *cur := top;
+    top@.sublist := NULL;
+    top@.count := 0;
+    top@.sym := NULL;
+    while ! done do
+        /* read identifier */
+        get_lexeme();
+        if lex.type != LEX_IDENTIFIER then
+            print_err("expected identifier", NULL);
+            unget_lexeme();
+        elsif ((sym := get_sym(lex.val)) and
+                   sym@.scope == get_scope() and
+                   ! sym@.decl) {
+            /* symbol already defined!  */
+            print_err("symbol already defined", 0);
+        else
+            /* add to id list */
+            if ((sym := get_sym(lex.val)) and
+                sym@.scope == get_scope()) {
+                /* already declared with some type */
+                cur@.sym := add_sym(lex.val, sym@.type);
+            else
+                /* assume void until initialized */
+                cur@.sym := add_sym(lex.val, alloc_type());
+            endif;
+            cur@.sublist := alloc_id_list();
+            cur@.sublist@.count := 0;
+            cur@.sublist@.sym := NULL;
+            cur@.sublist@.sublist := NULL;
+            cur := cur@.sublist;
+            count++;
+        endif;
+        /* read , */
+        get_lexeme();
+        if strcmp(&lex.val, ",") then
+            /* no more identifiers */
+            unget_lexeme();
+            done := 1;
+        endif;
+    endif;
+    /* modify count */
+    cur := top;
+    while(cur) {
+        cur@.count := count;
+        count--;
+        cur := cur@.sublist;
+    endif;
+    return top;
+end;

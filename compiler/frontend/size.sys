@@ -1,0 +1,32 @@
+#include <common.inc>
+
+def type_size: func(type: @type_t) returns four
+    def size: four;
+    def cur : @param_list_t;
+begin
+    if type@.specifier == TYPE_VOID then
+        size := 0;
+    elsif type@.specifier == TYPE_BYTE then
+        size := 1;
+    elsif type@.specifier == TYPE_HALF then
+        size := 2;
+    elsif type@.specifier == TYPE_WORD then
+        size := 4;
+    elsif type@.specifier == TYPE_DOBL then
+        size := 8;
+    elsif type@.specifier == TYPE_ARRAY then
+        size := type@.subcount * type_size(type@.subtype);
+    elsif type@.specifier == TYPE_PTR then
+        size := 8;
+    elsif type@.specifier == TYPE_RECORD then
+        cur := type@.param_list;
+        size := 0;
+        while(cur@.type) {
+            size +:= type_size(cur@.type);
+            cur := cur@.sublist;
+        endif;
+    else
+        print_err("can! get size for that type.", 0);
+    endif;
+    return size;
+end;

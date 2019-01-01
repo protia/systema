@@ -1,0 +1,18 @@
+#include <common.inc>
+
+def scope : four := 0;
+
+def enter_scope: func()
+begin
+    scope++;
+end;
+
+def leave_scope: func()
+begin
+    scope--;
+end;
+
+def get_scope: func()  returns four
+begin
+    return scope;
+end

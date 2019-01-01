@@ -1,0 +1,45 @@
+#include <common.inc>
+
+def head: @sym_t;
+
+def symtab_init: func()
+begin
+    head := NULL;
+end
+
+def get_sym: func(name: @[byte]) returns @sym_t
+    def ptr : @sym_t;
+    def done: four;
+begin
+    ptr := head;
+    done := 0;
+    while ! done and ptr do
+        if ! strcmp(name, ptr@.name) then
+            done := 1;
+        else
+            ptr := ptr@.next;
+        endif;
+    endif;
+    return ptr;
+end;
+
+def add_sym: func(name: @[byte], type: @type_t) returns @sym_t
+begin
+    sym_t *sym := alloc_sym();
+    sym@.next := head;
+    sym@.name := malloc(strlen(name)+1);
+    strcpy(sym@.name, name);
+    sym@.val := sym@.name;
+    sym@.type := type;
+    sym@.scope := get_scope();
+    head := sym;
+    return sym;
+end;
+
+def del_syms: func()
+begin
+    /* remove all symbols of current scope */
+    while head and head@.scope == get_scope() do
+        head := head@.next;
+    endif;
+end;

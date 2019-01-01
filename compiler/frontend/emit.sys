@@ -1,0 +1,823 @@
+#include <common.inc>
+
+def emit_fd: @FILE;
+def cur_section: four;
+
+def str_head: @str_t;
+def cur_lbl: four;
+def last_label: four;
+
+def get_new_label: func() returns @[byte]
+    def ret: @[byte];
+begin
+    ret := malloc(100) as @[byte];
+    ret@[0] := '.';
+    ret@[1] := 'L';
+    itoa(&ret@[2] as @[byte], last_label++);
+    return ret;
+end;
+
+def add_str_literal: func(str_literal: @[byte]) returns @[byte]
+
+    def str: @str_t;
+
+begin
+
+    str := str_head;
+
+    /* look for matching strings */
+    while str and strcmp(str_literal, str@.str_literal) do
+        str := str@.next;
+    loop;
+
+    /* ! found? allocate one */
+    if str == NULL then
+        str := malloc(sizeof(str_t)) as @str_t;
+        str@.next := str_head;
+        str@.lbl := malloc(20) as @[byte];
+        strcpy(str@.lbl, ".S");
+        itoa(&str@.lbl@[2] as @[byte], cur_lbl++);
+        str@.str_literal := malloc(strlen(str_literal)+1) as @[byte];
+        strcpy(str@.str_literal, str_literal);
+        str_head := str;
+    endif;
+
+    /* done */
+    return str@.lbl;
+
+end;
+
+def str_literal_flush: func()
+    def str: @str_t;
+begin
+    str := str_head;
+    emit_section(STORE_RODATA);
+    if str then
+        str_head := str@.next;
+        str_literal_flush();
+        emit_label(str@.lbl);
+        emit_string(str@.str_literal);
+    endif;
+end;
+
+def emit_init: func(fd: @FILE)
+begin
+    emit_fd := fd;
+    cur_section := -1;
+    str_head := NULL;
+    cur_lbl := 0;
+    last_label := 0;
+    arch_init();
+end;
+
+def emit_line: func(line: @[byte])
+begin
+    fprintf(emit_fd, "\t%s\n", line);
+end;
+
+def emit_comment: func(comment: @[byte])
+begin
+    fprintf(emit_fd, "\t# %s\n", comment);
+end;
+
+def emit_section: func(section: four)
+begin
+    if cur_section != section then
+        cur_section := section;
+        if section == STORE_CODE then
+            fprintf(emit_fd, "\n.text\n");
+        elsif section == STORE_DATA then
+            fprintf(emit_fd, "\n.data\n");
+        elsif section == STORE_BSS then
+            fprintf(emit_fd, "\n.bss\n");
+        elsif section == STORE_RODATA then
+            fprintf(emit_fd, "\n.section \"rodata\", \"ax\"\n");
+        endif;
+    endif;
+end;
+
+def emit_local: func(sym: @[byte])
+begin
+    fprintf(emit_fd, ".local %s\n", sym);
+end;
+
+def emit_global: func(sym: @[byte])
+begin
+    fprintf(emit_fd, ".global %s\n", sym);
+end;
+
+def emit_label: func(lbl: @[byte])
+begin
+    fprintf(emit_fd, "%s:", lbl);
+end;
+
+def emit_data: func(type: @type_t, expr: @expr_t)
+begin
+    if type@.specifier == TYPE_BYTE then
+        fprintf(emit_fd, "\t.byte %d\n", expr@.byte_literal_val);
+    elsif type@.specifier == TYPE_HALF then
+        fprintf(emit_fd, "\t.half %d\n", expr@.half_literal_val);
+    elsif type@.specifier == TYPE_WORD then
+        fprintf(emit_fd, "\t.word %d\n", expr@.word_literal_val);
+    elsif type@.specifier == TYPE_DOBL then
+        fprintf(emit_fd, "\t.quad %lld\n", expr@.long_literal_val);
+    elsif type@.specifier == TYPE_PTR then
+        fprintf(emit_fd, "\t.quad %p\n", expr@.long_literal_val as @void);
+    elsif type@.specifier == TYPE_ARRAY then
+        /* composite type */
+    else
+        /* composite type */
+    endif;
+end;
+
+def emit_string: func(str: @[byte])
+begin
+    fprintf(emit_fd, "\t.string %s\n", str);
+end;
+
+def emit_space: func(space: four)
+begin
+    fprintf(emit_fd, "\t.space %d\n", space);
+end;
+
+def emit_func_entry: func(stack_sym: @[byte])
+begin
+    arch_func_entry(stack_sym);
+end;
+
+def emit_func_leave: func(stack_sym: @[byte])
+begin
+    arch_func_leave(stack_sym);
+end;
+
+def emit_set: func(sym: @[byte], val: four)
+begin
+    fprintf(emit_fd, "\t.set   %s, %d\n", sym, val);
+end;
+
+def emit_jmp: func(lbl: @[byte])
+begin
+    arch_jmp(lbl);
+end;
+
+def emit_get_reg: func(usage: four, indx: four) returns four
+begin
+    return arch_get_reg(usage, indx);
+end;
+
+def emit_get_reg_size: func(reg_name: @[byte]) returns four
+begin
+    return arch_get_reg_size(reg_name);
+end;
+
+def emit_load: func(expr: @expr_t, reg: four)
+    def indx_reg: four;
+begin
+    /* load expr into reg */
+    indx_reg := arch_get_reg(REG_IDX, 0);
+    case expr@.type@.specifier
+        when TYPE_BYTE:
+            if expr@.literal then
+                /* is literal */
+                arch_loadb_literal(expr@.byte_literal_val, reg);
+            else
+                if expr@.indir then
+                    /* indirect load */
+                    arch_pushl(indx_reg);
+                    arch_loadl(expr@.addr, indx_reg);
+                    arch_loadb_indx(indx_reg, reg);
+                    arch_popl(indx_reg);
+                else
+                    /* direct load */
+                    arch_loadb(expr@.addr, reg);
+                endif;
+            endif;
+        when TYPE_HALF:
+            if expr@.literal then
+                /* is literal */
+                arch_loadh_literal(expr@.half_literal_val, reg);
+            else
+                if expr@.indir then
+                    /* indirect load */
+                    arch_pushl(indx_reg);
+                    arch_loadl(expr@.addr, indx_reg);
+                    arch_loadh_indx(indx_reg, reg);
+                    arch_popl(indx_reg);
+                else
+                    /* direct load */
+                    arch_loadh(expr@.addr, reg);
+                endif;
+            endif;
+        when TYPE_WORD:
+            if expr@.literal then
+                /* is literal */
+                arch_loadw_literal(expr@.word_literal_val, reg);
+            else
+                if expr@.indir then
+                    /* indirect load */
+                    arch_pushl(indx_reg);
+                    arch_loadl(expr@.addr, indx_reg);
+                    arch_loadw_indx(indx_reg, reg);
+                    arch_popl(indx_reg);
+                else
+                    /* direct load */
+                    arch_loadw(expr@.addr, reg);
+                endif;
+            endif;
+        when TYPE_DOBL:
+            if expr@.literal then
+                /* is literal */
+                arch_loadl_literal(expr@.long_literal_val, reg);
+            else
+                if expr@.indir then
+                    /* indirect load */
+                    arch_pushl(indx_reg);
+                    arch_loadl(expr@.addr, indx_reg);
+                    arch_loadl_indx(indx_reg, reg);
+                    arch_popl(indx_reg);
+                else
+                    /* direct load */
+                    arch_loadl(expr@.addr, reg);
+                endif;
+            endif;
+        when TYPE_PTR:
+            if expr@.literal then
+                /* is literal */
+                if expr@.addr then
+                    /* pointer to string literal */
+                    arch_leal(expr@.addr, reg);
+                else
+                    /* integral value casted to pointer */
+                    arch_loadl_literal(expr@.long_literal_val, reg);
+                endif;
+            else
+                if expr@.indir then
+                    /* indirect load */
+                    arch_pushl(indx_reg);
+                    arch_loadl(expr@.addr, indx_reg);
+                    arch_loadl_indx(indx_reg, reg);
+                    arch_popl(indx_reg);
+                else
+                    /* direct load */
+                    arch_loadl(expr@.addr, reg);
+                endif;
+            endif;
+        when others:
+            print_err("<bug> unsupported emit_load() type", 0);
+    esac;
+end;
+
+def emit_loadaddr: func(expr: @expr_t, reg: four)
+begin
+    arch_leal(expr@.addr, reg);
+end;
+
+def emit_store: func(reg: four, expr: @expr_t)
+    def indx_reg: four;
+begin
+    /* store reg into expr */
+    indx_reg := arch_get_reg(REG_IDX, 0);
+    if expr@.literal then
+        print_err("<bug> emit_store() into literal", 0);
+    endif;
+    case expr@.type@.specifier
+        when TYPE_BYTE:
+            if expr@.indir then
+                /* indirect store */
+                arch_pushl(indx_reg);
+                arch_loadl(expr@.addr, indx_reg);
+                arch_storeb_indx(reg, indx_reg);
+                arch_popl(indx_reg);
+            else
+                /* direct load */
+                arch_storeb(reg, expr@.addr);
+            endif;
+        when TYPE_HALF:
+            if expr@.indir then
+                /* indirect store */
+                arch_pushl(indx_reg);
+                arch_loadl(expr@.addr, indx_reg);
+                arch_storeh_indx(reg, indx_reg);
+                arch_popl(indx_reg);
+            else
+                /* direct load */
+                arch_storeh(reg, expr@.addr);
+            endif;
+        when TYPE_WORD:
+            if expr@.indir then
+                /* indirect store */
+                arch_pushl(indx_reg);
+                arch_loadl(expr@.addr, indx_reg);
+                arch_storew_indx(reg, indx_reg);
+                arch_popl(indx_reg);
+            else
+                /* direct load */
+                arch_storew(reg, expr@.addr);
+            endif;
+        when TYPE_DOBL:
+            if expr@.indir then
+                /* indirect store */
+                arch_pushl(indx_reg);
+                arch_loadl(expr@.addr, indx_reg);
+                arch_storel_indx(reg, indx_reg);
+                arch_popl(indx_reg);
+            else
+                /* direct load */
+                arch_storel(reg, expr@.addr);
+            endif;
+        when TYPE_PTR:
+            if expr@.indir then
+                /* indirect store */
+                arch_pushl(indx_reg);
+                arch_loadl(expr@.addr, indx_reg);
+                arch_storel_indx(reg, indx_reg);
+                arch_popl(indx_reg);
+            else
+                /* direct load */
+                arch_storel(reg, expr@.addr);
+            endif;
+        when others:
+            print_err("<bug> unsupported emit_store() type", 0);
+    esac;
+end;
+
+def emit_extend_signed: func(src_type: @type_t, dest_type: @type_t, reg: four)
+    def from_spec: four;
+    def to_spec  : four;
+begin
+    from_spec := src_type@.specifier;
+    to_spec := dest_type@.specifier;
+    /* signed extension */
+    if from_spec == TYPE_BYTE and to_spec == TYPE_HALF then
+        arch_extbh(reg);
+    elsif from_spec == TYPE_BYTE and to_spec == TYPE_WORD then
+        arch_extbw(reg);
+    elsif from_spec == TYPE_BYTE and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_extbl(reg);
+    elsif from_spec == TYPE_HALF and to_spec == TYPE_WORD then
+        arch_exthw(reg);
+    elsif from_spec == TYPE_HALF and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_exthl(reg);
+    elsif from_spec == TYPE_WORD and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_extwl(reg);
+    else
+        /* do !hing */
+    endif;
+end;
+
+def emit_extend_unsigned: func(src_type: @type_t, dest_type: @type_t, reg: four)
+    def from_spec: four;
+    def to_spec  : four;
+begin
+    from_spec := src_type@.specifier;
+    to_spec := dest_type@.specifier;
+    /* unsigned extension */
+    if from_spec == TYPE_BYTE and to_spec == TYPE_HALF then
+        arch_extbh_zero(reg);
+    elsif from_spec == TYPE_BYTE and to_spec == TYPE_WORD then
+        arch_extbw_zero(reg);
+    elsif from_spec == TYPE_BYTE and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_extbl_zero(reg);
+    elsif from_spec == TYPE_HALF and to_spec == TYPE_WORD then
+        arch_exthw_zero(reg);
+    elsif from_spec == TYPE_HALF and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_exthl_zero(reg);
+    elsif from_spec == TYPE_WORD and (to_spec == TYPE_DOBL or to_spec == TYPE_PTR) then
+        arch_extwl_zero(reg);
+    else
+        /* do !hing */
+    endif;
+end;
+
+def emit_add: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_addb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_addh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_addw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_addl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_add(): invalid type", 0);
+    esac;
+end;
+
+def emit_sub: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_subb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_subh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_subw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_subl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_sub(): invalid type", 0);
+    esac;
+end;
+
+def emit_mul: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_mulb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_mulh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_mulw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_mull(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_mul(): invalid type", 0);
+    esac;
+end;
+
+def emit_div: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_divb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_divh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_divw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_divl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_div(): invalid type", 0);
+    esac;
+end;
+
+def emit_mod: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_modb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_modh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_modw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_modl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_mod(): invalid type", 0);
+    esac;
+end;
+
+def emit_not: func(type: @type_t, reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_notb(reg);
+        when TYPE_HALF:
+            arch_noth(reg);
+        when TYPE_WORD:
+            arch_notw(reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_notl(reg);
+        when others:
+            print_err("<bug> arch_!(): invalid type", 0);
+    esac;
+end;
+
+def emit_and: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_andb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_andh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_andw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_andl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_and(): invalid type", 0);
+    esac;
+end;
+
+def emit_eor: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_eorb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_eorh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_eorw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_eorl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_eor(): invalid type", 0);
+    esac;
+end;
+
+def emit_xor: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_xorb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_xorh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_xorw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_xorl(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_xor(): invalid type", 0);
+    esac;
+end;
+
+def emit_sll: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_sllb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_sllh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_sllw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_slll(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_sll(): invalid type", 0);
+    esac;
+end;
+
+def emit_srl: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_srlb(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_srlh(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_srlw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_srll(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_srl(): invalid type", 0);
+    esac;
+end;
+
+def emit_sra: func(type: @type_t, src_reg: four, dest_reg: four)
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_srab(src_reg, dest_reg);
+        when TYPE_HALF:
+            arch_srah(src_reg, dest_reg);
+        when TYPE_WORD:
+            arch_sraw(src_reg, dest_reg);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_sral(src_reg, dest_reg);
+        when others:
+            print_err("<bug> emit_sra(): invalid type", 0);
+    esac;
+end;
+
+def emit_beq: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_beqb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_beqh(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_beqw(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_beql(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_beq(): invalid type", 0);
+    esac;
+end;
+
+def emit_bne: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bneb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bneh(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bnew(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bnel(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_bne(): invalid type", 0);
+    esac;
+end;
+
+def emit_bgt: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bgtb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bgth(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bgtw(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bgtl(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_bgt(): invalid type", 0);
+    esac;
+end;
+
+def emit_bge: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bgeb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bgeh(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bgew(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bgel(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_bge(): invalid type", 0);
+    esac;
+end;
+
+def emit_blt: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bltb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_blth(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bltw(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bltl(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_blt(): invalid type", 0);
+    esac;
+end;
+
+def emit_ble: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bleb(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bleh(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_blew(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_blel(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_ble(): invalid type", 0);
+    esac;
+end;
+
+def emit_bgt_unsigned: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bgtb_unsigned(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bgth_unsigned(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bgtw_unsigned(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bgtl_unsigned(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_bgt(): invalid type", 0);
+    esac;
+end;
+
+def emit_bge_unsigned: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bgeb_unsigned(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bgeh_unsigned(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bgew_unsigned(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bgel_unsigned(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_bge(): invalid type", 0);
+    esac;
+end;
+
+def emit_blt_unsigned: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bltb_unsigned(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_blth_unsigned(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_bltw_unsigned(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bltl_unsigned(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_blt(): invalid type", 0);
+    esac;
+end;
+
+def emit_ble_unsigned: func(type: @type_t, reg1: four, reg2: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bleb_unsigned(reg1, reg2, lbl);
+        when TYPE_HALF:
+            arch_bleh_unsigned(reg1, reg2, lbl);
+        when TYPE_WORD:
+            arch_blew_unsigned(reg1, reg2, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_blel_unsigned(reg1, reg2, lbl);
+        when others:
+            print_err("<bug> emit_ble(): invalid type", 0);
+    esac;
+end;
+
+def emit_bze: func(type: @type_t, reg: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bzeb(reg, lbl);
+        when TYPE_HALF:
+            arch_bzeh(reg, lbl);
+        when TYPE_WORD:
+            arch_bzew(reg, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bzel(reg, lbl);
+        when others:
+            print_err("<bug> emit_bze(): invalid type", 0);
+    esac;
+end;
+
+def emit_bnz: func(type: @type_t, reg: four, lbl: @[byte])
+begin
+    case type@.specifier
+        when TYPE_BYTE:
+            arch_bnzb(reg, lbl);
+        when TYPE_HALF:
+            arch_bnzh(reg, lbl);
+        when TYPE_WORD:
+            arch_bnzw(reg, lbl);
+        when TYPE_DOBL, TYPE_PTR:
+            arch_bnzl(reg, lbl);
+        when others:
+            print_err("<bug> emit_bnz(): invalid type", 0);
+    esac;
+end;
+
+def emit_adjust_stack: func(stack_size: four)
+begin
+    arch_adjust_stack(stack_size);
+end;
+
+def emit_loadarg: func(arg: four, reg: four)
+begin
+    arch_loadarg(arg, reg);
+end;
+
+def emit_pusharg: func(size: four, reg: four, arg: four)
+begin
+    arch_pusharg(reg, arg);
+end;
+
+def emit_poparg: func(arg: four, reg: four)
+begin
+    arch_poparg(arg, reg);
+end;
+
+def emit_call: func(expr: @expr_t)
+begin
+    if expr@.indir then
+        arch_call_indir(expr@.addr);
+    else
+        arch_call(expr@.addr);
+    endif;
+end;
+
+def emit_def_m4_macro: func(macro_name: @[byte])
+begin
+    fprintf(emit_fd, "define(`%s',`", macro_name);
+end;
+
+def emit_fed_m4_macro: func()
+begin
+    fprintf(emit_fd, "')");
+end;
+
+def emit_use_m4_macro: func(macro_name: @[byte])
+begin
+    fprintf(emit_fd, "%s`'", macro_name);
+end;
+
+def emit_nop: func()
+begin
+    arch_nop();
+end;

@@ -1,0 +1,14 @@
+#include "common.h"
+
+def parse_file: func()
+begin
+    /* File: dim_stmt */
+    parse_dim_list();
+    /* should encounter end of file */
+    get_lexeme();
+    if lex.type != LEX_EOF then
+        print_err("expected end of file.", NULL);
+    endif;
+    /* flush all strings */
+    str_literal_flush();
+end;

@@ -1,0 +1,427 @@
+#include <common.inc>
+
+int has_ungetl := 0; /* unget lexeme   */
+lexeme_t lex;       /* current lexeme */
+int state := 0;
+
+char *ops[] := {
+    "[",
+    "]",
+    "(",
+    ")",
+    "{",
+    "endif;",
+    ";",
+    ".",
+    ",",
+    "..",
+    "...",
+    "++",
+    "--",
+    "&",
+    "@",
+    "*",
+    "+",
+    "-",
+    "~",
+    "! ",
+    "/",
+    "%",
+    "<<",
+    ">>",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "==",
+    "!=",
+    "^",
+    "|",
+    "?",
+    ":",
+    "::=",
+    "*:=",
+    "/:=",
+    "%:=",
+    "+:=",
+    "-:=",
+    "<<=",
+    ">>=",
+    "&:=",
+    "^:=",
+    "|:=",
+    ":=",
+endif;;
+
+char *keywords[] := {
+    "def",
+    "dec",
+    "typ",
+    "sub",
+    "local",
+    "as",
+    "in",
+    "code",
+    "rodata",
+    "data",
+    "bss",
+    "stack",
+    "register",
+    "byte",
+    "twin",
+    "four",
+    "eigh",
+    "func",
+    "text",
+    "record",
+    "returns",
+    "begin",
+    "assembly",
+    "sizeof",
+    "typeof",
+    "if",
+    "unsigned",
+    "and",
+    "or",
+    "then",
+    "elsif",
+    "else",
+    "endif",
+    "case",
+    "when",
+    "others",
+    "esac",
+    "for",
+    "from",
+    "down",
+    "to",
+    "step",
+    "do",
+    "while",
+    "loop",
+    "return",
+    "end",
+endif;;
+
+def isop: func(str: @[byte]) returns four
+    def i    : four;
+    def found: four;
+begin
+    found := 0;
+    for (i := 0; i < sizeof(ops)/sizeof(ops[i]) and ! found; i++) {
+        if ! strcmp(ops[i], str) then
+            found := 1;
+        endif;
+    endif;
+    return found;
+end;
+
+def iskeyword: func(str: @[byte]) returns four
+    def i    : four;
+    def found: four;
+begin
+    found := 0;
+    for (i := 0; i < sizeof(keywords)/sizeof(keywords[i])and! found; i++) {
+        if ! strcmp(keywords[i], str) then
+            found := 1;
+        endif;
+    endif;
+    return found;
+end;
+
+def isnum: func(chr: byte) returns four
+begin
+    return chr >= '0' and chr <= '9';
+end;
+
+def isoct: func(chr: byte) returns four
+begin
+    return chr >= '0' and chr <= '7';
+end;
+
+def ishex: func(chr: byte) returns four
+begin
+    return (chr >= '0' and chr <= '9')or
+           (chr >= 'a' and chr <= 'f')or
+           (chr >= 'A' and chr <= 'F');
+end;
+
+def isnondigit: func(chr: byte) returns four
+begin
+    return (chr >= 'a' and chr <= 'z') or
+           (chr >= 'A' and chr <= 'Z') or
+           (chr == '_');
+end;
+
+def get_lexeme: func()
+    def pos   : four;
+    def chr   : four;
+    def f     : four;
+    def escape: four;
+begin
+    /* initialize flags */
+    pos    := 0;
+    f      := 0;
+    escape := 0;
+    if has_ungetl then
+        has_ungetl := 0;
+    else
+        /* get next character */
+        chr := next_char();
+        /* white space? */
+        while isspace(chr) do
+            chr := next_char();
+        endif;
+        /* lexeme contains at least this first char */
+        lex.val[0] := chr;
+        lex.val[1] := 0;
+        /* reset f */
+        f := 0;
+        /* start at unknown state */
+        state := STATE_START;
+        /* loop over input characters to read full lexeme */
+        while(! f /* ! done yet */) {
+            /* check chr */
+            case state
+                when STATE_START:
+                    if chr == '\'' then
+                        /* read character */
+                        state := STATE_CHAR;
+                    elsif chr == '\"' then
+                        /* read string */
+                        state := STATE_STRING;
+                    elsif chr == '/' then
+                        /* comment or division */
+                        state := STATE_COMMENT;
+                    elsif isop(lex.val) then
+                        /* operator */
+                        state := STATE_OP;
+                    elsif isnum(chr) then
+                        /* numeric */
+                        state := STATE_NUM;
+                    elsif isnondigit(chr) then
+                        /* alphabetic */
+                        state := STATE_ALPHA;
+                    elsif chr == EOF then
+                        /* end of file */
+                        state := STATE_EOF;
+                    else
+                        /* invalid token */
+                        f := 1;
+                    endif;
+                    break;
+                when STATE_CHAR:
+                    if (pos == 2 and ! (lex.val[1] == '\\')) or pos == 3 then
+                        if chr != '\'' then
+                            /* invalid token */
+                            unread_char();
+                            f := 1;
+                        else
+                            /* done */
+                            f := 2;
+                        endif;
+                    endif;
+                    if ! f and chr == EOF then
+                        /* invalid token */
+                        unread_char();
+                        f := 1;
+                    endif;
+                    break;
+                when STATE_STRING:
+                    if chr == '\"' and ! escape then
+                        /* done */
+                        f := 2;
+                    elsif chr == EOF then
+                        /* invalid token */
+                        unread_char();
+                        f := 1;
+                    elsif chr == '
+' then
+                        /* invalid token */
+                        unread_char();
+                        f := 1;
+                    endif;
+                    if escape then
+                        escape := 0;
+                    elsif chr == '\\' then
+                        escape := 1;
+                    endif;
+                    break;
+                when STATE_COMMENT:
+                    if pos == 1 then
+                        /* time to decide */
+                        if chr == '/' or chr == '*' then
+                            /* comment -- no special handling */
+                        elsif chr == ':=' then
+                            /* /:= operator */
+                            f := 2;
+                        else
+                            /* / operator */
+                            unread_char();
+                            f := 2;
+                        endif;
+                    else
+                        if (lex.val[1] == '*' and
+                            chr == '/' and
+                            lex.val[pos-1] == '*') {
+                            /* closing of multi-line comment */
+                            f := 2;
+                        elsif (lex.val[1] == '/' and
+                                   chr == '\n') {
+                            /* closing of single-line comment */
+                            f := 2;
+                        elsif lex.val[1] == '*' and chr == EOF then
+                            /* invalid token */
+                            unread_char();
+                            f := 1;
+                        endif;
+                    endif;
+                    break;
+                when STATE_OP:
+                    /* append char and test */
+                    lex.val[pos] := chr;
+                    lex.val[pos+1] := 0;
+                    if ! isop(lex.val) then
+                        /* done */
+                        unread_char();
+                        f := 2;
+                    endif;
+                    break;
+                when STATE_ALPHA:
+                    if ! isnondigit(chr) and ! isnum(chr) then
+                        /* done */
+                        unread_char();
+                        f := 2;
+                    endif;
+                    break;
+                when STATE_NUM:
+                    if ! isnum(chr) then
+                        if ((chr == 'o' or chr == 'O') and
+                            pos == 1 and lex.val[0] == '0') {
+                            /* octal number */
+                            state := STATE_OCT;
+                        elsif ((chr == 'x' or chr == 'X') and
+                            pos == 1 and lex.val[0] == '0') {
+                            /* hexadecimal number */
+                            state := STATE_HEX;
+                        else
+                            /* done */
+                            unread_char();
+                            f := 2;
+                        endif;
+                    endif;
+                    break;
+                when STATE_OCT:
+                    if ! isoct(chr) then
+                        unread_char();
+                        if pos > 2 then
+                            /* done */
+                            f := 2;
+                        else
+                            /* invalid token */
+                            unread_char();
+                            f := 1;
+                        endif;
+                    endif;
+                    break;
+                when STATE_HEX:
+                    if ! ishex(chr) then
+                        unread_char();
+                        if pos > 2 then
+                            /* done */
+                            f := 2;
+                        else
+                            /* invalid token */
+                            unread_char();
+                            f := 1;
+                        endif;
+                    endif;
+                    break;
+                when STATE_EOF:
+                    /* done */
+                    f := 2;
+                    break;
+            endif;
+            /* what's next? */
+            if f == 0 then
+                /* store chr and move to next */
+                lex.val[pos++] := chr;
+                chr := next_char();
+            elsif f == 1 then
+                /* invalid token */
+                if pos then
+                    lex.val[pos] := 0;
+                else
+                    pos := 0;
+                endif;
+                lex.type := LEX_INVALID;
+                print_err("invalid token: %s", lex.val);
+            else
+                /* append to token if string or char */
+                if state == STATE_CHAR or state == STATE_STRING then
+                    /* append current chr */
+                    lex.val[pos++] := chr;
+                    lex.val[pos] := 0;
+                elsif state == STATE_COMMENT then
+                    /* update lexeme value depending on state */
+                    if pos == 1 then
+                        if chr == ':=' then
+                            lex.val[pos++] := chr;
+                        endif;
+                    else
+                        if chr == '/' then
+                            lex.val[pos++] := chr;
+                        endif;
+                    endif;
+                    lex.val[pos] := 0;
+                elsif state == STATE_EOF then
+                    /* put empty lexeme */
+                    lex.val[0] := 0;
+                else
+                    /* append 0 */
+                    lex.val[pos] := 0;
+                endif;
+                /* determine type of lexeme */
+                switch(state) {
+                    when STATE_CHAR:
+                        lex.type := LEX_CHAR_LITERAL;
+                        break;
+                    when STATE_STRING:
+                        lex.type := LEX_STR_LITERAL;
+                        break;
+                    when STATE_COMMENT:
+                        if lex.val[1] == '*' or lex.val[1] == '/' then
+                            lex.type := LEX_COMMENT;
+                            get_lexeme();
+                        else
+                            lex.type := LEX_OP;
+                        endif;
+                        break;
+                    when STATE_OP:
+                        lex.type := LEX_OP;
+                        break;
+                    when STATE_ALPHA:
+                        if iskeyword(lex.val) then
+                            lex.type := LEX_KEYWORD;
+                        else
+                            lex.type := LEX_IDENTIFIER;
+                        endif;
+                        break;
+                    when STATE_NUM:
+                    when STATE_OCT:
+                    when STATE_HEX:
+                        lex.type := LEX_INT_LITERAL;
+                        break;
+                    when STATE_EOF:
+                        lex.type := LEX_EOF;
+                        break;
+                endif;
+            endif;
+        endif;
+    endif;
+end;
+
+def unget_lexeme: func()
+begin
+    has_ungetl := 1;
+end;

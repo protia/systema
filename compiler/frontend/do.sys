@@ -1,0 +1,646 @@
+#include <common.inc>
+
+def do_assign: func(dest: @expr_t, src: @expr_t)
+    def reg: four;
+begin
+
+    reg := emit_get_reg(REG_ACC, 0);
+    /* dest operand must be an lvalue */
+    if ! dest@.lvalue then
+        print_err("operand must be lvalue", 0);
+    elsif ! type_match(src@.type, dest@.type, 1) then
+        if src@.type@.specifier  >= TYPE_BYTE and
+           src@.type@.specifier  <= TYPE_DOBL and
+           src@.literal          == 1         and
+           src@.byte_literal_val == 0         and
+           src@.half_literal_val == 0         and
+           src@.word_literal_val == 0         and
+           src@.long_literal_val == 0         and
+           dest@.type@.specifier == TYPE_PTR
+        then
+            /* special case: pointer := null */
+        else
+            print_err("operands must be of the same type", 0);
+        endif;
+    else
+        /* check if casting is needed */
+        if src@.type@.specifier != dest@.type@.specifier then
+            src := type_cast(src, dest@.type);
+        endif;
+        /* perform assignment */
+        if (dest@.type@.specifier >= TYPE_BYTE and
+            dest@.type@.specifier <= TYPE_DOBL)
+           or
+            dest@.type@.specifier == TYPE_PTR
+        then
+             emit_load(src, reg);
+             emit_store(reg, dest);
+         else
+            print_err("types for assignment are ! supported", 0);
+         endif;
+    endif;
+
+end;
+
+def do_unary: func(expr: @expr_t, op: @[byte], post: four) returns @expr_t
+    def ret  : @expr_t;
+    def expr0: @expr_t;
+    def expr1: @expr_t;
+    def tmp  : @expr_t;
+    def reg  : four;
+    def lbl1 : @[byte];
+    def lbl2 : @[byte];
+begin
+
+    /* initialize variables */
+    reg := emit_get_reg(REG_ACC, 0);
+    /* literal 0 */
+    expr0 := alloc_expr();
+    expr0@.literal := 1;
+    expr0@.type@.specifier := TYPE_WORD;
+    expr0@.word_literal_val := 0;
+    /* literal 1 */
+    expr1 := alloc_expr();
+    expr1@.literal := 1;
+    expr1@.type@.specifier := TYPE_WORD;
+    expr1@.word_literal_val := 1;
+    /* perform operation */
+    if ! strcmp(op, "++") then
+        if ! post then
+            /* pre-increment */
+            ret := do_binary(expr, "+", expr1);
+            /* perform assignment */
+            do_assign(expr, ret);
+        else
+            /* post-increment */
+            ret := alloc_expr();
+            ret@.type := expr@.type;
+            ret@.addr := get_new_addr(type_size(expr@.type));
+            ret@.lvalue := 1;
+            /* copy expr into ret */
+            do_assign(ret, expr);
+            /* post increment */
+            tmp := do_binary(expr, "+", expr1);
+            /* perform assignment */
+            do_assign(expr, tmp);
+            /* ret is no longer an lvalue */
+            ret@.lvalue := 0;
+        endif;
+    elsif ! strcmp(op, "--") then
+        if ! post then
+            /* pre-decrement */
+            ret := do_binary(expr, "-", expr1);
+            /* perform assignment */
+            do_assign(expr, ret);
+        else
+            /* post-decrement */
+            ret := alloc_expr();
+            ret@.type := expr@.type;
+            ret@.addr := get_new_addr(type_size(expr@.type));
+            ret@.lvalue := 1;
+            /* copy expr into ret */
+            do_assign(ret, expr);
+            /* post increment */
+            tmp := do_binary(expr, "-", expr1);
+            /* perform assignment */
+            do_assign(expr, tmp);
+            /* ret is no longer an lvalue */
+            ret@.lvalue := 0;
+        endif;
+    elsif ! strcmp(op, "+") then
+        /* perform addition to zero */
+        ret := do_binary(expr0, "+", expr);
+    elsif ! strcmp(op, "-") then
+        /* perform subtraction from zero */
+        ret := do_binary(expr0, "-", expr);
+    elsif ! strcmp(op, "! ") then
+        /* allocate a temporary holder */
+        tmp := alloc_expr();
+        tmp@.type := expr@.type;
+        /* check type */
+        if expr@.type@.specifier >= TYPE_BYTE and
+           expr@.type@.specifier <= TYPE_DOBL
+        then
+            if expr@.literal then
+                /* literal */
+                tmp@.literal := 1;
+                literal_do_unary(tmp, op, expr);
+            else
+                /* allocate memory and label */
+                tmp@.addr := get_new_addr(type_size(tmp@.type));
+                lbl1 := get_new_label();
+                lbl2 := get_new_label();
+                /* expr := zero? */
+                emit_load(expr, reg);
+                emit_bze(expr@.type, reg, lbl1);
+                /* set acc to 0 */
+                emit_load(expr0, reg);
+                emit_jmp(lbl2);
+                /* set acc to 1 */
+                emit_label(lbl1);
+                emit_load(expr1, reg);
+                /* store acc into tmp */
+                emit_label(lbl2);
+                emit_store(reg, tmp);
+            endif;
+        else
+            print_err("unsupported operation for the given type", 0);
+        endif;
+        /* return tmp */
+        ret := tmp;
+    elsif ! strcmp(op, "~") then
+        /* allocate a temporary holder */
+        tmp := alloc_expr();
+        tmp@.type := expr@.type;
+        /* check type */
+        if expr@.type@.specifier >= TYPE_BYTE and
+           expr@.type@.specifier <= TYPE_DOBL
+        then
+            if expr@.literal then
+                /* literal */
+                tmp@.literal := 1;
+                literal_do_unary(tmp, op, expr);
+            else
+                tmp@.addr := get_new_addr(type_size(tmp@.type));
+                emit_load(expr, reg);
+                emit_not(expr@.type, reg);
+                emit_store(reg, tmp);
+            endif;
+        else
+            print_err("unsupported operation for the given type", 0);
+        endif;
+        /* return tmp */
+        ret := tmp;
+    elsif ! strcmp(op, "&") then
+        /* allocate temporary variable */
+        tmp := alloc_expr();
+        tmp@.type@.specifier := TYPE_PTR;
+        tmp@.type@.complete := 1;
+        tmp@.type@.subtype := expr@.type;
+        /* expr must be an lvalue */
+        if expr@.lvalue then
+            /* p := &var */
+            if ! expr@.indir then
+                tmp@.addr := get_new_addr(type_size(expr@.type));
+                emit_loadaddr(expr, reg);
+                emit_store(reg, tmp);
+            else
+                tmp@.addr := expr@.addr;
+            endif;
+        else
+            print_err("can't reference a non lvalue expressions", 0);
+        endif;
+        /* return tmp */
+        ret := tmp;
+    elsif ! strcmp(op, "@") then
+        /* dereference a pointer */
+        if expr@.type@.specifier == TYPE_PTR then
+            /* allocate temporary variable */
+            tmp := alloc_expr();
+            tmp@.type := expr@.type;
+            tmp@.addr := get_new_addr(type_size(expr@.type));
+            /* store pointer value in tmp's addr */
+            emit_load(expr, reg);
+            emit_store(reg, tmp);
+            /* set tmp type to that of pointed expr and mark indirect */
+            tmp@.type   := tmp@.type@.subtype;
+            tmp@.indir  := 1;
+            tmp@.lvalue := expr@.lvalue;
+            /* return res */
+            ret := tmp;
+        else
+            print_err("can't dereference non lvalue expressions", 0);
+        endif;
+    else
+        print_err("<bug> do_unary(): invalid op %s", op as eigh);
+        ret := expr;
+    endif;
+    /* done */
+    return ret;
+
+end;
+
+def do_binary: func(op1: @expr_t, op: @[byte], op2: @expr_t) returns @expr_t
+
+    /* sub expressions */
+    def expr:         @expr_t;
+    def expr0:        @expr_t;
+    def expr1:        @expr_t;
+    /* operation expressions */
+    def op_ptr:       @expr_t;
+    def op_incr:      @expr_t;
+    def subtype_size: @expr_t;
+    def ptr_as_long:  @expr_t;
+    def add_val:      @expr_t;
+    /* variable used to store type */
+    def type:         @type_t;
+    /* variable used to store param list */
+    def cur:          @param_list_t;
+    /* labels used */
+    def lbl1:         @[byte];
+    def lbl2:         @[byte];
+    def lbl3:         @[byte];
+    /* registers */
+    def reg1:         four;
+    def reg2:         four;
+    /* flags */
+    def offset:       four;
+    def found:        four;
+
+begin
+
+    /* initialize variables */
+    reg1 := emit_get_reg(REG_ACC, 0);
+    reg2 := emit_get_reg(REG_ACC, 1);
+    offset := 0;
+    found := 0;
+    /* container for the result */
+    expr := alloc_expr();
+    /* literal 0 */
+    expr0 := alloc_expr();
+    expr0@.literal := 1;
+    expr0@.type@.specifier := TYPE_WORD;
+    expr0@.word_literal_val := 0;
+    /* literal 1 */
+    expr1 := alloc_expr();
+    expr1@.literal := 1;
+    expr1@.type@.specifier := TYPE_WORD;
+    expr1@.word_literal_val := 1;
+    /* perform action */
+    if ! strcmp(op, "[") then
+
+        /* array subscript */
+        if op1@.type@.specifier == TYPE_ARRAY then
+            /* subscript must be integer */
+            if op2@.type@.specifier >= TYPE_BYTE and
+               op2@.type@.specifier <= TYPE_DOBL
+            then
+                /* load the address of the first element in the
+                 * array to a pointer to array's subtype
+                 * then perform pointer arithmetic
+                 * ex: to evaluate arr[i]
+                 *        let p pointer := &arr[0]
+                 *            p +:= i
+                 *            return *p as indirect lvalue var
+                 */
+                expr := alloc_expr();
+                expr@.type@.specifier := TYPE_PTR;
+                expr@.type@.complete := 1;
+                expr@.type@.subtype := op1@.type@.subtype;
+                /* p := &arr[0] */
+                if ! op1@.indir then
+                    expr@.addr := get_new_addr(type_size(expr@.type));
+                    emit_loadaddr(op1, reg1);
+                    emit_store(reg1, expr);
+                else
+                    expr@.addr := op1@.addr;
+                endif;
+                /* p +:= i */
+                expr := do_binary(expr, "+", op2);
+                /* now expr holds the destined address */
+                expr@.type := expr@.type@.subtype;
+                expr@.lvalue := 1;
+                expr@.indir := 1;
+            else
+                print_err("array subscript must be integer", 0);
+                expr := op1;
+                expr@.type := op1@.type@.subtype;
+            endif;
+        else
+            /* must be applied to an array type */
+            print_err("[] can't be applied to a non-array type", 0);
+            expr := op1;
+        endif;
+
+    elsif ! strcmp(op, ".") then
+
+        /* record member resolution */
+        if op1@.type@.specifier == TYPE_RECORD then
+            /* op2 must be a member of the record */
+            offset := 0;
+            found := 0;
+            cur := op1@.type@.param_list;
+            while !found and cur@.type do
+                if !strcmp(cur@.name, op2@.addr) then
+                    found := 1;
+                else
+                    offset += type_size(cur@.type);
+                    cur := cur@.sublist;
+                endif;
+            loop;
+            /* found? */
+            if found then
+                /* load the address of the record to
+                 * to a pointer of type @byte,
+                 * then perform pointer arithmetic
+                 * ex: to evaluate record member
+                 *        let p pointer := &arr[0]
+                 *            p +:= member_offset
+                 *            return *p as indirect lvalue var
+                 */
+                expr := alloc_expr();
+                expr@.type@.specifier := TYPE_PTR;
+                expr@.type@.complete := 1;
+                expr@.type@.subtype := alloc_type();
+                expr@.type@.subtype@.specifier := TYPE_BYTE;
+                expr@.type@.subtype@.complete := 1;
+                expr@.type@.subtype@.subcount := 0;
+                expr@.type@.subtype@.subtype := NULL;
+                /* p := &arr[0] */
+                if ! op1@.indir then
+                    expr@.addr := get_new_addr(type_size(expr@.type));
+                    emit_loadaddr(op1, reg1);
+                    emit_store(reg1, expr);
+                else
+                    expr@.addr := op1@.addr;
+                endif;
+                /* store offset in op2 */
+                op2@.literal := 1;
+                op2@.type := alloc_type();
+                op2@.type@.specifier := TYPE_WORD;
+                op2@.type@.complete := 1;
+                op2@.type@.subcount := 0;
+                op2@.type@.subtype := NULL;
+                op2@.word_literal_val := offset;
+                /* p +:= i */
+                expr := do_binary(expr, "+", op2);
+                /* now expr holds the destined address */
+                expr@.type := cur@.type;
+                expr@.lvalue := 1;
+                expr@.indir := 1;
+            else
+                print_err("can! match record member", 0);
+                expr := op1;
+            endif;
+        else
+            /* must be applied to record type */
+            print_err(". can't be applied to a non-record type", 0);
+            expr := op1;
+        endif;
+
+    elsif op1@.type@.specifier >= TYPE_BYTE and
+          op1@.type@.specifier <= TYPE_PTR  and
+          op2@.type@.specifier >= TYPE_BYTE and
+          op2@.type@.specifier <= TYPE_PTR
+    then
+
+        /* two operands are integral */
+        /* final type is the largest of them */
+        if op1@.type@.specifier > op2@.type@.specifier then
+            expr@.type := op1@.type;
+            op2 := type_cast(op2, expr@.type); /* implicit cast */
+        elsif op1@.type@.specifier < op2@.type@.specifier then
+            expr@.type := op2@.type;
+            op1 := type_cast(op1, expr@.type); /* implicit cast */
+        else
+            expr@.type := op1@.type; /* any type of them */
+        endif;
+
+        /* for comparison operations, resultant type is word */
+        if !strcmp(op, ">")  or
+           !strcmp(op, ">=") or
+           !strcmp(op, "<")  or
+           !strcmp(op, "<=") or
+           !strcmp(op, "==") or
+           !strcmp(op, "!=")
+        then
+            /* result type is word */
+            expr@.type := alloc_type();
+            expr@.type@.specifier := TYPE_WORD;
+            /* allocate labels */
+            lbl1 := get_new_label();
+            lbl2 := get_new_label();
+            lbl3 := get_new_label();
+        endif;
+
+        /* do operation */
+        if op1@.literal and op2@.literal then
+            /* literals */
+            expr@.literal := 1;
+            /* do binary operations on literals */
+            literal_do_binary(expr, op1, op, op2);
+        else
+            /* allocate space for result */
+            expr@.addr := get_new_addr(type_size(expr@.type));
+            /* load both operands into machine regs */
+            emit_load(op1, reg1);
+            emit_load(op2, reg2);
+            /* perform operation */
+            if ! strcmp(op, "+") then
+                emit_add(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "-") then
+                emit_sub(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "*") then
+                emit_mul(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "/") then
+                emit_div(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "%") then
+                emit_mod(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "==") then
+                emit_beq(op1@.type, reg1, reg2, lbl2);
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, "!=") then
+                emit_bne(op1@.type, reg1, reg2, lbl2);
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, ">") then
+                if get_unsignedf() then
+                    emit_bgt_unsigned(op1@.type, reg1, reg2, lbl2);
+                else
+                    emit_bgt(op1@.type, reg1, reg2, lbl2);
+                endif;
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, ">=") then
+                if get_unsignedf() then
+                    emit_bge_unsigned(op1@.type, reg1, reg2, lbl2);
+                else
+                    emit_bge(op1@.type, reg1, reg2, lbl2);
+                endif;
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, "<") then
+                if get_unsignedf() then
+                    emit_blt_unsigned(op1@.type, reg1, reg2, lbl2);
+                else
+                    emit_blt(op1@.type, reg1, reg2, lbl2);
+                endif;
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, "<=") then
+                if get_unsignedf() then
+                    emit_ble_unsigned(op1@.type, reg1, reg2, lbl2);
+                else
+                    emit_ble(op1@.type, reg1, reg2, lbl2);
+                endif;
+                emit_label(lbl1);
+                emit_load(expr0, reg1);
+                emit_jmp(lbl3);
+                emit_label(lbl2);
+                emit_load(expr1, reg1);
+                emit_label(lbl3);
+            elsif ! strcmp(op, "|") then
+                emit_eor(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "&") then
+                emit_and(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, "^") then
+                emit_xor(op1@.type, reg2, reg1);
+            elsif ! strcmp(op, ">>") then
+                if get_unsignedf() then
+                    emit_srl(op1@.type, reg2, reg1);
+                else
+                    emit_sra(op1@.type, reg2, reg1);
+                endif;
+            elsif ! strcmp(op, "<<") then
+                emit_sll(op1@.type, reg2, reg1);
+            else
+                print_err("<bug> do_binary(): invalid op %s", op as eigh);
+            endif;
+            emit_store(reg1, expr);
+        endif;
+
+    elsif (  (op1@.type@.specifier == TYPE_PTR  and
+              op2@.type@.specifier >= TYPE_BYTE and
+              op2@.type@.specifier <= TYPE_DOBL)
+             or
+             (op2@.type@.specifier == TYPE_PTR  and
+              op1@.type@.specifier >= TYPE_BYTE and
+              op1@.type@.specifier <= TYPE_DOBL))
+          and(
+              !strcmp(op, "+")
+             or
+              !strcmp(op, "-"))
+    then
+        /* one operand is a pointer, the other is integral */
+        if op1@.type@.specifier == TYPE_PTR then
+            op_ptr := op1;
+            op_incr := op2;
+        else
+            op_ptr := op2;
+            op_incr := op1;
+            /* this swapping can't happen in subtraction */
+            if ! strcmp(op, "-") then
+                print_err("can't subtract a pointer from integer", 0);
+            endif;
+        endif;
+
+        /* get the size of the subtype of the ptr */
+        subtype_size := alloc_expr();
+        subtype_size@.literal := 1;
+        subtype_size@.type@.specifier := TYPE_DOBL;
+        subtype_size@.long_literal_val:=type_size(op_ptr@.type@.subtype);
+
+        /* special treatment for void pointers */
+        if op_ptr@.type@.subtype@.specifier == TYPE_VOID then
+            subtype_size@.long_literal_val := 0;
+        endif;
+
+        /* subtype must be complete */
+        if ! subtype_size@.long_literal_val then
+            print_err("pointer subtype must be complete or void", 0);
+        endif;
+
+        /* casting needed for second operand? */
+        if op_incr@.type@.specifier != TYPE_DOBL then
+            /* cast to long */
+            type := alloc_type();
+            type@.specifier := TYPE_DOBL;
+            type@.complete := 1;
+            op_incr := type_cast(op_incr, type);
+        endif;
+
+        /* cast the pointer operand to long */
+        ptr_as_long := type_cast(op_ptr, op_incr@.type);
+
+        /* multiply op_incr by pointer subtype size */
+        add_val := do_binary(op_incr, "*", subtype_size);
+
+        /* add add_val to ptr_as_long */
+        expr := do_binary(ptr_as_long, op, add_val);
+
+        /* final ptr type should reflect the original ptr */
+        expr@.type := op_ptr@.type;
+
+    elsif op1@.type@.specifier == TYPE_PTR and
+          op2@.type@.specifier == TYPE_PTR
+    then
+
+        /* operation on two pointers */
+        if ! type_match(op1@.type, op2@.type, 1) then
+            print_err("pointers must point to the same type", NULL);
+        endif;
+
+        /* get the size of the subtype of the ptr */
+        subtype_size := alloc_expr();
+        subtype_size@.literal := 1;
+        subtype_size@.type@.specifier := TYPE_DOBL;
+        subtype_size@.long_literal_val:=type_size(op1@.type@.subtype);
+
+        /* subtype must be complete */
+        if ! subtype_size@.long_literal_val then
+            print_err("pointer subtype must be complete or void", 0);
+        endif;
+
+        /* now cast the two pointers to integers */
+        type := alloc_type();
+        type@.specifier := TYPE_DOBL;
+        type@.complete := 1;
+        op1 := type_cast(op1, type);
+        op2 := type_cast(op2, type);
+
+        /* perform the operation */
+        if !strcmp(op, "-")  or
+           !strcmp(op, "<")  or
+           !strcmp(op, "<=") or
+           !strcmp(op, ">")  or
+           !strcmp(op, ">=") or
+           !strcmp(op, "==") or
+           !strcmp(op, "!=")
+        then
+
+            /* do the operation normally */
+            expr := do_binary(op1, op, op2);
+
+            /* for sub operation, divide the result by ptr size */
+            if ! strcmp(op, "-") then
+                expr := do_binary(expr, "/", subtype_size);
+            endif;
+
+        else
+
+            /* operation ! supported */
+            print_err("invalid operation '%s' on pointers", op as eigh);
+
+        endif;
+
+    else
+
+        /* unsupported types for operation */
+        print_err("unsupported types for '%s'", op as eigh);
+
+    endif;
+    /* done */
+    return expr;
+
+end;

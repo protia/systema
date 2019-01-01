@@ -1,0 +1,21 @@
+#include <common.inc>
+
+def unsignedf : four ::= 0;
+
+def set_unsignedf: func(newval: four) returns four
+    def oldval: four;
+begin
+    oldval := unsignedf;
+    unsignedf := newval;
+    return oldval;
+end;
+
+def reset_unsignedf: func(oldval: four)
+begin
+    unsignedf := oldval;
+end;
+
+def get_unsignedf: func() returns four
+begin
+    return unsignedf;
+end;

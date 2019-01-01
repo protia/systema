@@ -1,0 +1,49 @@
+#include <common.inc>
+
+def err: four;
+
+def err_init: func()
+begin
+    err := 0;
+end;
+
+def print_err: func(err_msg: @[byte], msg: four)
+    def cur_line: @[byte];
+    def i       : four;
+    def count   : four;
+begin
+
+    cur_line := get_cur_line();
+    err := 1;
+    fprintf(stderr, "%s:L%d: Error: ", get_file_name(), get_lineno());
+    fprintf(stderr, err_msg, msg);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "%s", cur_line);
+    count := get_col()-strlen(&lex.val);
+    if cur_line@[strlen(cur_line)-1] != '\n' then
+        fprintf(stderr, "\n");
+        if count > strlen(cur_line) then
+            count := strlen(cur_line);
+        endif;
+    else
+        if count > strlen(cur_line)-1 then
+            count := strlen(cur_line)-1;
+        endif;
+    endif;
+    for i from 0 to count-1 do
+        fprintf(stderr, " ");
+    loop;
+    fprintf(stderr, "^\n");
+
+end;
+
+def get_err: func() returns four
+    def ret: four;
+begin
+    if err then
+        ret := -1;
+    else
+        ret := 0;
+    endif;
+    return ret;
+end;

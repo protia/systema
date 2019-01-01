@@ -1,0 +1,43 @@
+#include <common.inc>
+
+def parse_assign: func() returns @expr_t
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def op   : [10 byte];
+begin
+    /* assign: conditional (':=' assign | lambda) */
+    expr := parse_conditional();
+    /* lookahead */
+    get_lexeme();
+    /* := ? */
+    if (!strcmp(&lex.val, ":=")  or
+        !strcmp(&lex.val, "+=")  or
+        !strcmp(&lex.val, "-=")  or
+        !strcmp(&lex.val, "*=")  or
+        !strcmp(&lex.val, "/=")  or
+        !strcmp(&lex.val, "%=")  or
+        !strcmp(&lex.val, "&=")  or
+        !strcmp(&lex.val, "|=")  or
+        !strcmp(&lex.val, "^=")  or
+        !strcmp(&lex.val, ">>=") or
+        !strcmp(&lex.val, "<<=")) then
+        /* assignment */
+        strcpy(&op, &lex.val);
+        op[strlen(&op)-1] := 0;
+        /* evaluate the value */
+        expr1 := parse_assign();
+        /* generate code for assignment */
+        if !strcmp(&op, ":") then
+            /* normal assignment */
+            do_assign(expr, expr1);
+        else
+            /* do operation, then assign */
+            expr1 := do_binary(expr, &op, expr1);
+            do_assign(expr, expr1);
+        endif;
+    else
+        unget_lexeme();
+    endif;
+    /* done */
+    return expr;
+end;

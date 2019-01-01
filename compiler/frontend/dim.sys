@@ -1,0 +1,483 @@
+#include <common.inc>
+
+def parse_dim_keyword: func() returns four
+    def dim_type: four;
+begin
+    /* dim_keyword: def | dec  | typ */
+    dim_type := 0;
+    get_lexeme();
+    if !strcmp(&lex.val, "def") then
+        /* define */
+        dim_type := DIM_DEF;
+    elsif !strcmp(&lex.val, "dec") then
+        /* declare */
+        dim_type := DIM_DEC;
+    elsif !strcmp(&lex.val, "typ") then
+        /* type */
+        dim_type := DIM_TYP;
+    else
+        /* expected dim keyword */
+        print_err("expected def, dec, or typ keyword", 0);
+        /* assume when others */
+        dim_type := DIM_DEF;
+    endif;
+    return dim_type;
+end;
+
+def parse_local_keyword: func() returns four
+    def ret: four;
+begin
+    /* local_keyword: 'local' | lambda */
+    get_lexeme();
+    if ! strcmp(&lex.val, "local") then
+        ret := 1;
+    else
+        unget_lexeme();
+        ret := 0;
+    endif;
+    return ret;
+end;
+
+def parse_in_loc: func() returns @loc_t
+    def loc: @loc_t;
+begin
+    /* in_loc: 'in' loc | lambda */
+    loc := NULL;
+    get_lexeme();
+    if ! strcmp(&lex.val, "in") then
+        /* location is specified */
+        loc := alloc_loc();
+        get_lexeme();
+        if ! strcmp(&lex.val, "code") then
+            loc@.specifier := STORE_CODE;
+        elsif ! strcmp(&lex.val, "rodata") then
+            loc@.specifier := STORE_RODATA;
+        elsif ! strcmp(&lex.val, "data") then
+            loc@.specifier := STORE_DATA;
+        elsif ! strcmp(&lex.val, "bss") then
+            loc@.specifier := STORE_BSS;
+        elsif ! strcmp(&lex.val, "stack") then
+            loc@.specifier := STORE_STACK;
+        elsif ! strcmp(&lex.val, "register") then
+            loc@.specifier := STORE_REG;
+            /* parse ( */
+            get_lexeme();
+            if strcmp(&lex.val, "(") then
+                print_err("expected (", 0);
+                unget_lexeme();
+            endif;
+            /* parse string literal */
+            get_lexeme();
+            if lex.type != LEX_STR_LITERAL then
+                print_err("expected string literal", 0);
+                unget_lexeme();
+                loc := NULL;
+            else
+                loc@.reg_name := malloc(strlen(&lex.val)+1) as @[byte];
+                strcpy(loc@.reg_name, &lex.val[1] as @[byte]);
+                loc@.reg_name@[strlen(loc@.reg_name) - 1] := 0;
+                loc@.reg_size := emit_get_reg_size(loc@.reg_name);
+                if loc@.reg_size == 0 then
+                    print_err("no such register", 0);
+                    loc := NULL;
+                endif;
+            endif;
+            /* parse ) */
+            get_lexeme();
+            if strcmp(&lex.val, ")") then
+                print_err("expected )", 0);
+                unget_lexeme();
+            endif;
+        else
+            print_err("unknown location", 0);
+            loc := NULL;
+        endif;
+    else
+        unget_lexeme();
+    endif;
+    return loc;
+end;
+
+def parse_as_type: func() returns @type_t
+    def type: @type_t;
+begin
+    /* dim_type: 'as' type | lambda */
+    type := NULL;
+    get_lexeme();
+    if strcmp(&lex.val, "as") and strcmp(&lex.val, ":") then
+        unget_lexeme();
+        print_err("expected as or :", 0);
+    endif;
+    /* parse type */
+    type := parse_type();
+    /* done */
+    return type;
+end;
+
+def parse_ass: func() returns @expr_list_t
+    def ret: @expr_list_t;
+begin
+    /* ass: ':=' expr_list | lambda */
+    ret := NULL;
+    get_lexeme();
+    if ! strcmp(&lex.val, "::=") then
+        /* parse expr_list */
+        ret := parse_expr_list();
+    else
+        unget_lexeme();
+    endif;
+    return ret;
+end;
+
+def parse_dim_stmt: func() returns four
+
+    def err       : four;
+    def stop      : four;
+    def i         : four;
+    def loc       : @loc_t;
+    def type      : @type_t;
+    def expr_list : @expr_list_t;
+    def eptr      : @expr_list_t;
+    def id_list   : @id_list_t;
+    def iptr      : @id_list_t;
+    def lvalue    : @expr_t;
+    def local_flag: four;
+    def dim_type  : four;
+
+begin
+
+    /* dim_stmt: dim_keyword local_keyword id_list
+     *           (as_type in_loc dim_ass | func_body) ;
+     */
+
+    /* initialize err */
+    err := 0;
+
+    /* parse dim keyword */
+    dim_type := parse_dim_keyword();
+
+    /* parse local keyword */
+    local_flag := parse_local_keyword();
+
+    /* word local can! be used within stack scope */
+    if get_scope() and local_flag then
+        print_err("can! use 'local' in this scope", 0);
+        err := 1;
+    endif;
+
+    /* local can! be used with dec and typ */
+    if (dim_type == DIM_TYP or dim_type == DIM_DEC) and local_flag then
+        print_err("uage of 'local' with dec/typ is meaningless", 0);
+        err := 1;
+    endif;
+
+    /* parse id_list */
+    id_list := parse_id_list();
+
+    /* id_list size can't be zero */
+    if id_list@.count == 0 then
+        print_err("at least one identifier must be specified", 0);
+        err := 1;
+    endif;
+
+    /* if type, go and set symbol types to type NOW! */
+    if !err and dim_type == DIM_TYP then
+        iptr := id_list;
+        while iptr@.count do
+              /* declare as type */
+              if iptr@.sym@.type@.specifier != TYPE_TYPEOF then
+                  iptr@.sym@.type := alloc_type();
+                  iptr@.sym@.type@.specifier := TYPE_TYPEOF;
+                  iptr@.sym@.type@.complete := 0;
+                  iptr@.sym@.type@.subcount := 1;
+                  iptr@.sym@.type@.subtype := alloc_type();
+                  iptr@.sym@.type@.subtype@.specifier := TYPE_VOID;
+                  iptr@.sym@.type@.subtype@.complete  := 0;
+                  iptr@.sym@.type@.subtype@.subcount  := 0;
+                  iptr@.sym@.type@.subtype@.subtype   := NULL;
+                  iptr@.sym@.decl := 1;
+              endif;
+              iptr := iptr@.sublist;
+        loop;
+    endif;
+
+    /* if type, we can stop here */
+    if dim_type == DIM_TYP then
+        get_lexeme();
+        if strcmp(&lex.val, ";") then
+            /* didn't find ; */
+            unget_lexeme();
+        else
+            /* done */
+            stop := 1;
+        endif;
+    endif;
+
+    /* don't stop? */
+    if !stop then
+
+	/* parse type */
+        type := parse_as_type();
+
+        /* function or variable? */
+        if dim_type != DIM_DEF or type@.specifier != TYPE_FUNC then
+
+    	    /* type must be completely specified if def */
+    	    if dim_type == DIM_DEF then
+    	        if ! type@.complete then
+    	            print_err("type must be completely specified", 0);
+    	            err := 1;
+    	        endif;
+    	    endif;
+
+    	    /* parse location */
+    	    loc := parse_in_loc();
+
+    	    /* parse assignment */
+    	    expr_list := parse_ass();
+
+    	    /* determine location */
+    	    if loc == NULL then
+    	        /* no location specified, use when others */
+    	        loc := alloc_loc();
+    	        if get_scope() then
+    	            loc@.specifier := STORE_STACK;
+    	        elsif expr_list then
+    	            loc@.specifier := STORE_DATA;
+    	        else
+    	            loc@.specifier := STORE_BSS;
+    	        endif;
+    	    elsif ! err then
+    	        /* scope defined by user, check it. */
+    	        if get_scope() and loc@.specifier < STORE_STACK then
+    	            print_err("invalid location for internal variable", 0);
+    	            err := 1;
+    	        elsif ! get_scope() and loc@.specifier >= STORE_STACK then
+    	            print_err("invalid location for external variable", 0);
+    	            err := 1;
+    	        elsif dim_type != DIM_DEF then
+    	            print_err("location can't be specified with dec/typ", 0);
+    	            err := 1;
+    	        elsif loc@.specifier == STORE_BSS and expr_list then
+    	            print_err("bss can't hold initialized data", 0);
+    	            err := 1;
+    	        elsif loc@.specifier == STORE_REG then
+    	            /* match register with type */
+    	            if type@.specifier==TYPE_BYTE and loc@.reg_size==1 then
+    	                /* 1 BYTE ~ OK */
+    	            elsif type@.specifier==TYPE_HALF and loc@.reg_size==2 then
+    	                /* 2 BYTES ~ OK */
+    	            elsif type@.specifier==TYPE_WORD and loc@.reg_size==4 then
+    	                /* 4 BYTES ~ OK */
+    	            elsif type@.specifier==TYPE_DOBL and loc@.reg_size==8 then
+    	                /* 8 BYTES ~ OK */
+    	            elsif type@.specifier==TYPE_PTR  and loc@.reg_size==8 then
+    	                /* 8 BYTES ~ OK */
+    	            else
+    	                print_err("type and register specifiers do not match",0);
+    	                err := 1;
+    	            endif;
+    	        endif;
+    	    endif;
+
+    	    /* if expr_list is specified, check size */
+    	    if expr_list and expr_list@.count != id_list@.count then
+    	        print_err("expression list size <> identifiers", 0);
+    	        err := 1;
+    	    endif;
+
+    	    /* dec and typ can! have initializers */
+    	    if (dim_type == DIM_TYP or dim_type == DIM_DEC) and expr_list then
+    	        print_err("dec/typ can! have initializers", 0);
+    	        err := 1;
+    	    endif;
+
+    	    /* initializers must be literal */
+    	    if ! err and expr_list then
+    	        eptr := expr_list;
+    	        i := 0;
+    	        while !err and eptr@.count do
+    	            if eptr@.expr@.literal != 1 then
+    	                print_err("initializers must be literals", 0);
+    	                err := 1;
+    	            endif;
+    	            eptr := eptr@.sublist;
+    	            i++;
+    	        loop;
+    	    endif;
+
+    	    /* check initializer types */
+    	    if !err and expr_list then
+    	        eptr := expr_list;
+    	        while eptr@.count do
+    	            err += !type_match(eptr@.expr@.type, type, 1);
+    	            /* implicit cast needed? */
+    	            if !err and eptr@.expr@.type@.specifier != type@.specifier then
+    	                eptr@.expr := type_cast(eptr@.expr, type);
+    	            endif;
+    	            eptr := eptr@.sublist;
+    	        loop;
+    	        if err then
+    	            print_err("types are inconsistent", 0);
+    	        endif;
+    	    endif;
+
+            /* do action!  */
+    	    iptr := id_list;
+    	    eptr := expr_list;
+    	    while !err and iptr@.count do
+    	        if dim_type == DIM_DEF then
+    	            /* definition */
+    	            if get_scope() then
+    	                /* in register? */
+    	                if loc@.specifier == STORE_REG then
+    	                    iptr@.sym@.val := loc@.reg_name;
+    	                else
+    	                    /* allocate stack space */
+    	                    iptr@.sym@.val := get_new_addr(type_size(type));
+    	                endif;
+    	                /* initialized? */
+    	                if expr_list then
+    	                    lvalue := alloc_expr();
+    	                    lvalue@.type := type;
+    	                    lvalue@.addr := iptr@.sym@.val;
+    	                    lvalue@.lvalue := 1;
+    	                    do_assign(lvalue, eptr@.expr);
+    	                endif;
+    	                /* set symbol type */
+    	                iptr@.sym@.type := type;
+    	            else
+    	                /* enter section */
+    	                emit_section(loc@.specifier);
+
+    	                /* local? */
+    	                if local_flag then
+    	                    emit_local(iptr@.sym@.name);
+    	                else
+    	                    emit_global(iptr@.sym@.name);
+    	                endif;
+
+    	                /* print label */
+    	                emit_label(iptr@.sym@.name);
+
+    	                /* set addr of symbol to its lbl name */
+    	                iptr@.sym@.val := iptr@.sym@.name;
+
+    	                /* if initialized, print value, else print space */
+    	                if expr_list then
+    	                    emit_data(type, eptr@.expr);
+    	                else
+    	                    emit_space(type_size(type));
+    	                endif;
+
+    	                /* set symbol type */
+    	                iptr@.sym@.type := type;
+    	            endif;
+    	        elsif dim_type == DIM_DEC then
+    	            /* just declare */
+    	            iptr@.sym@.type := type;
+    	            iptr@.sym@.val  := iptr@.sym@.name;
+    	            iptr@.sym@.decl := 1;
+    	        elsif dim_type == DIM_TYP then
+    	            /* update type */
+    	            iptr@.sym@.type@.subtype@.specifier  := type@.specifier;
+    	            iptr@.sym@.type@.subtype@.complete   := type@.complete;
+    	            iptr@.sym@.type@.subtype@.subcount   := type@.subcount;
+    	            iptr@.sym@.type@.subtype@.subtype    := type@.subtype;
+    	            iptr@.sym@.type@.subtype@.rettype    := type@.rettype;
+    	            iptr@.sym@.type@.subtype@.param_list := type@.param_list;
+    	            iptr@.sym@.type@.specifier           := TYPE_TYPEOF;
+    	            iptr@.sym@.type@.complete            := 0;
+    	            iptr@.sym@.type@.subcount            := 1;
+                    iptr@.sym@.decl                      := 1;
+    	        endif;
+    	        /* next element */
+    	        iptr := iptr@.sublist;
+    	        if expr_list then
+    	            eptr := eptr@.sublist;
+    	        endif;
+    	    loop;
+
+        else
+
+    	    /* inline function are currently ! supported */
+    	    if get_scope() != 0 then
+    	        print_err("inline functions are currently ! supported", 0);
+    	    endif;
+
+#if 0
+    	/* encounter : */
+    	get_lexeme();
+    	if strcmp(&lex.val, ":") then
+    	    /* didn't find : */
+    	    print_err("expected :", NULL);
+    	    unget_lexeme();
+    	endif;
+#endif
+
+    	    /* a function!  */
+            emit_section(STORE_CODE);
+    	    emit_line("");
+
+    	    /* only one identifier should be named */
+    	    if id_list@.count > 1 then
+    	        print_err("at most one identifier must be specified", 0);
+    	        err := 1;
+    	    elsif id_list@.count == 1 then
+    	        /* local? */
+    	        if local_flag then
+    	            emit_local(id_list@.sym@.name);
+    	        else
+    	            emit_global(id_list@.sym@.name);
+    	        endif;
+
+    	        /* print labels */
+    	        emit_label(id_list@.sym@.name);
+
+    	        /* set addr of symbol directly to its lbl name */
+    	        id_list@.sym@.val := id_list@.sym@.name;
+
+    	        /* set type of symbol as func */
+    	        id_list@.sym@.type := type;
+
+    	        /* parse function body */
+    	        parse_func(id_list@.sym);
+    	    endif;
+
+        endif;
+
+        /* encounter ; */
+        get_lexeme();
+        if strcmp(&lex.val, ";") then
+    	    /* didn't find ; */
+    	    print_err("expected ;", NULL);
+    	    unget_lexeme();
+        endif;
+    endif;
+
+    /* done */
+    return 0;
+end;
+
+def parse_dim_list: func()
+    def done: four;
+begin
+    /* dim_list: dim_stmt dim_list | lambda */
+    done := 0;
+    while !done do
+        /* look ahead next lexeme */
+        get_lexeme();
+        unget_lexeme();
+        /* done? */
+        if strcmp(&lex.val, "def") and
+           strcmp(&lex.val, "dec") and
+           strcmp(&lex.val, "typ") and
+           strcmp(&lex.val, "sub")
+        then
+            done := 1;
+        else
+            /* parse dim_stmt */
+            parse_dim_stmt();
+        endif;
+    loop;
+end;

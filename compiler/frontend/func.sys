@@ -1,0 +1,347 @@
+#include <common.inc>
+
+def push_recursively: func(expr_list: @expr_list_t, cur_arg: four)
+    def expr     : @expr_t;
+    def type     : @type_t;
+    def longtype : @type_t;
+    def arg_count: four;
+    def reg      : four;
+begin
+    /* initialize variables */
+    reg := emit_get_reg(REG_ACC, 0);
+    /* expression list empty? */
+    if expr_list@.count == 0 then
+        /* done */
+    else
+        expr := expr_list@.expr;
+        type := expr@.type;
+        /* determine arg_count */
+        if (type@.specifier == TYPE_BYTE or
+            type@.specifier == TYPE_HALF or
+            type@.specifier == TYPE_WORD or
+            type@.specifier == TYPE_DOBL or
+            type@.specifier == TYPE_PTR) {
+            arg_count := 1;
+        else
+            arg_count  := 0;
+        endif;
+        /* next argument */
+        push_recursively(expr_list@.sublist, cur_arg+arg_count);
+        /* push argument into stack */
+        if (type@.specifier == TYPE_BYTE or
+            type@.specifier == TYPE_HALF or
+            type@.specifier == TYPE_WORD or
+            type@.specifier == TYPE_DOBL or
+            type@.specifier == TYPE_PTR) {
+            emit_load(expr, reg);
+            if type@.specifier < TYPE_DOBL then
+                longtype := alloc_type();
+                longtype@.specifier := TYPE_DOBL;
+                longtype@.complete := 1;
+                emit_extend_signed(expr@.type, longtype, reg); /* FIXME */
+            endif;
+            emit_pusharg(type_size(type), reg, cur_arg);
+        else
+            /* array or record */
+            print_err("passing of arrays/records is ! supported", 0);
+        endif;
+    endif;
+end;
+
+def pop_recursively: func(expr_list: @expr_list_t, cur_arg: four)
+    def expr     : @expr_t;
+    def type     : @type_t;
+    def arg_count: four;
+    def reg      : four;
+begin
+    /* initialize variables */
+    reg := emit_get_reg(REG_ACC, 0);
+    /* expr list is empty? */
+    if expr_list@.count == 0 then
+        /* done */
+    else
+        expr := expr_list@.expr;
+        type := expr@.type;
+        /* determine arg_count and pop out arguments */
+        if (type@.specifier == TYPE_BYTE or
+            type@.specifier == TYPE_HALF or
+            type@.specifier == TYPE_WORD or
+            type@.specifier == TYPE_DOBL or
+            type@.specifier == TYPE_PTR) {
+            emit_poparg(cur_arg, reg);
+            arg_count := 1;
+        else
+            arg_count  := 0;
+        endif;
+        /* next argument */
+        pop_recursively(expr_list@.sublist, cur_arg+arg_count);
+    endif;
+endif;
+
+def parse_func_call: func(func_expr: @expr_t) returns @expr_t
+
+    /* flags */
+    def done      : four;
+    def err       : four;
+    def i         : four;
+
+    /* function components */
+    def expr      : @expr_t;
+    def param_list: @param_list_t;
+    def expr_list : @expr_list_t;
+    def top       : @expr_list_t;
+
+    /* registers */
+    def reg       : four;
+
+begin
+
+    /* initialize flags */
+    done := 0;
+    err  := 0;
+    i    := 0;
+    /* initialize param_list */
+    param_list := func_expr@.type@.param_list;
+    /* initialize register */
+    reg := emit_get_reg(REG_ACC, 0);
+    /* read ( */
+    get_lexeme();
+    /* read par list */
+    expr_list := parse_expr_list();
+    top := expr_list;
+    /* read ) */
+    get_lexeme();
+    if strcmp(&lex.val, ")") then
+        print_err("expected )", 0);
+        unget_lexeme();
+    endif;
+    /* all parameters must match function definition */
+    while(! done) {
+        if ! expr_list@.count or ! param_list@.count then
+            if param_list@.any then
+                param_list := param_list@.sublist;
+            endif;
+            done := 1;
+        else
+            /* match parameter with type */
+            i++;
+            if param_list@.any then
+                /* any type is acceptable, really */
+            else
+                if ! type_match(param_list@.type,expr_list@.expr@.type,1) then
+                    if ! err then
+                        print_err("function call: parameters invalid",0);
+                    endif;
+                    err := 1;
+                else
+                    /* implicit cast needed? */
+                    if (param_list@.type@.specifier !=
+                        expr_list@.expr@.type@.specifier) {
+                        expr_list@.expr := type_cast(expr_list@.expr,
+                                                    param_list@.type);
+                    endif;
+                endif;
+            endif;
+            /* move forward */
+            expr_list := expr_list@.sublist;
+            if ! param_list@.any then
+                param_list := param_list@.sublist;
+            endif;
+        endif;
+    endif;
+    /* parameter count is valid? */
+    if expr_list@.count then
+        print_err("too many parameters for function", 0);
+        err := 1;
+    elsif param_list@.count then
+        print_err("too few parameters for function", 0);
+        err := 1;
+    endif;
+    if ! err then
+        /* push args to stack */
+        push_recursively(top, 0);
+        /* issue call to function */
+        emit_call(func_expr);
+        /* pop out arguments */
+        pop_recursively(top, 0);
+    endif;
+    /* ret value */
+    expr := alloc_expr();
+    if func_expr@.type@.rettype then
+        expr@.type := func_expr@.type@.rettype;
+        expr@.addr := get_new_addr(type_size(expr@.type));
+        emit_store(reg, expr);
+    else
+        expr@.type@.specifier := TYPE_VOID;
+    endif;
+    /* done */
+    return expr;
+
+end;
+
+def parse_func_header: func(type: @type_t)
+begin
+    /* parse function parameters as a record header */
+    parse_record_header(type);
+    /* return type */
+    get_lexeme();
+    if ! strcmp(&lex.val, "returns") then
+        /* read ret type */
+        type@.rettype := parse_type();
+        if (type@.rettype@.specifier != TYPE_BYTE and
+            type@.rettype@.specifier != TYPE_HALF and
+            type@.rettype@.specifier != TYPE_WORD and
+            type@.rettype@.specifier != TYPE_DOBL and
+            type@.rettype@.specifier != TYPE_PTR) {
+            print_err("unsupported return type", 0);
+            type@.rettype := alloc_type();
+        endif;
+    else
+        unget_lexeme();
+    endif;
+end;
+
+def parse_func: func(sym: @sym_t)
+
+    /* used registers */
+    def reg       : four;
+
+    /* temporary holders for parameters */
+    def expr      : @expr_t;
+    def type      : @type_t;
+    def param_list: @param_list_t;
+    def arg_count : four;
+
+    /* stack size */
+    def stack_sym : @[byte];
+
+begin
+
+    /* get accumulator register */
+    reg := emit_get_reg(REG_ACC, 0);
+
+    /* initialize argument counter */
+    arg_count := 0;
+
+    /* determine stack symbol */
+    stack_sym := malloc(strlen(sym@.name)+20);
+    strcpy(stack_sym, ".");
+    strcat(stack_sym, sym@.name);
+    strcat(stack_sym, ".frame");
+
+    /* enter a new scope level */
+    enter_scope();
+
+    /* initialize stack frame */
+    init_stack_frame();
+
+    /* function entry point assembly code */
+    emit_comment("FUNCTION ENTRY");
+    emit_func_entry(stack_sym);
+
+    /* get function header */
+    type := sym@.type;
+
+    /* loop over function parameters */
+    emit_comment("COPY FUNCTION PARAMETERS");
+    param_list := type@.param_list;
+    while param_list@.count != 0 and ! param_list@.any do
+        /* add to symtab */
+        if get_sym(param_list@.name) then
+            print_err("identifier already declared", 0);
+        else
+            /* add sym to symtab */
+            sym := add_sym(param_list@.name, param_list@.type);
+            /* set symbol value */
+            sym@.val := get_new_addr(type_size(param_list@.type));
+            /* create expr as container */
+            expr := alloc_expr();
+            expr@.type := param_list@.type;
+            expr@.addr := sym@.val;
+            /* load argument into variable */
+            if (param_list@.type@.specifier == TYPE_BYTE or
+                param_list@.type@.specifier == TYPE_HALF or
+                param_list@.type@.specifier == TYPE_WORD or
+                param_list@.type@.specifier == TYPE_DOBL or
+                param_list@.type@.specifier == TYPE_PTR) {
+                /* integral type */
+                emit_loadarg(arg_count, reg);
+                emit_store(reg, expr);
+                arg_count++;
+            elsif param_list@.type@.specifier == TYPE_ARRAY then
+                /* array passed */
+                /* TODO */
+            elsif param_list@.type@.specifier == TYPE_RECORD then
+                /* record passed */
+                /* TODO */
+            else
+                /* invalid type */
+                print_err("invalid parameter types",0);
+            endif;
+        endif;
+        /* next parameter */
+        param_list := param_list@.sublist;
+    endif;
+
+    /* evaluate dims */
+    emit_comment("EVALUATE VARIABLE DEFINITIONS");
+    parse_dim_list();
+
+    /* parse begin */
+    get_lexeme();
+    if strcmp(&lex.val, "begin") then
+        print_err("expected 'begin'", 0);
+        unget_lexeme();
+    endif;
+
+    /* evaluate statements */
+    parse_stmt_list();
+
+    /* evaluate return stmt if applicable */
+    if type@.rettype then
+        /* return */
+        get_lexeme();
+        if strcmp(&lex.val, "return") then
+            print_err("expected return", 0);
+            unget_lexeme();
+        endif;
+        /* evaluate expression */
+        expr := parse_expr();
+        /* type must be matching */
+        if ! type_match(expr@.type, type@.rettype, 1) then
+            print_err("incompatible return type", 0);
+        else
+            /* needs casting? */
+            if expr@.type@.specifier != type@.rettype@.specifier then
+                expr := type_cast(expr, type@.rettype);
+            endif;
+            /* load to accumulator */
+            emit_load(expr, reg);
+        endif;
+        /* read ; */
+        get_lexeme();
+        if strcmp(&lex.val, ";") then
+            print_err("expected ;", 0);
+            unget_lexeme();
+        endif;
+    endif;
+
+    /* endf */
+    get_lexeme();
+    if strcmp(&lex.val, "end") then
+        print_err("expected end", 0);
+        unget_lexeme();
+    endif;
+
+    /* function termination */
+    emit_comment("FUNCTION EXIT");
+    emit_func_leave(stack_sym);
+    emit_set(stack_sym, get_stack_size());
+
+    /* delete symbols of current scope */
+    del_syms();
+
+    /* exit func scope */
+    leave_scope();
+
+end;

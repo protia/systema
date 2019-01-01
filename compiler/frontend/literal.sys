@@ -1,0 +1,349 @@
+#include <common.inc>
+
+/* literal types:
+ * integer literal
+ * pointer literal
+ * text literal
+ */
+
+#define RESB   expr@.byte_literal_val
+#define RESH   expr@.half_literal_val
+#define RESW   expr@.word_literal_val
+#define RESD   expr@.long_literal_val
+
+#define OP1B   op1@.byte_literal_val
+#define OP1H   op1@.half_literal_val
+#define OP1W   op1@.word_literal_val
+#define OP1D   op1@.long_literal_val
+
+#define OP1BU  ((unsigned) op1@.byte_literal_val)
+#define OP1HU  ((unsigned) op1@.half_literal_val)
+#define OP1WU  ((unsigned) op1@.word_literal_val)
+#define OP1DU  ((unsigned) op1@.long_literal_val)
+
+#define OP2B   op2@.byte_literal_val
+#define OP2H   op2@.half_literal_val
+#define OP2W   op2@.word_literal_val
+#define OP2D   op2@.long_literal_val
+
+#define OP2BU  ((unsigned) op2@.byte_literal_val)
+#define OP2HU  ((unsigned) op2@.half_literal_val)
+#define OP2WU  ((unsigned) op2@.word_literal_val)
+#define OP2DU  ((unsigned) op2@.long_literal_val)
+
+def literal_type_cast: func(before: @expr_t, after: @expr_t)
+    def from_spec: four;
+    def to_spec  : four;
+    def holder   : eigh;
+begin
+    /* get types */
+    from_spec := before@.type@.specifier;
+    to_spec   := after@.type@.specifier;
+    /* check types */
+    if (((from_spec < TYPE_BYTE or from_spec > TYPE_DOBL) and from_spec != TYPE_PTR) or
+        ((to_spec   < TYPE_BYTE or to_spec   > TYPE_DOBL) and to_spec   != TYPE_PTR)) {
+        print_err("unsupported types for literal casting\n", 0);
+    else
+        /* move from 'before' into 'holder' */
+        if get_unsignedf() then
+            if from_spec == TYPE_BYTE then
+                holder := (unsigned char) before@.byte_literal_val;
+            elsif from_spec == TYPE_HALF then
+                holder := (unsigned short) before@.half_literal_val;
+            elsif from_spec == TYPE_WORD then
+                holder := (unsigned int) before@.word_literal_val;
+            else
+                holder := (unsigned long long) before@.long_literal_val;
+            endif;
+        else
+            if from_spec == TYPE_BYTE then
+                holder := before@.byte_literal_val;
+            elsif from_spec == TYPE_HALF then
+                holder := before@.half_literal_val;
+            elsif from_spec == TYPE_WORD then
+                holder := before@.word_literal_val;
+            else
+                holder := before@.long_literal_val;
+            endif;
+        endif;
+        /* move from 'holder' into 'after' */
+        if to_spec == TYPE_BYTE then
+            after@.byte_literal_val := holder;
+        elsif to_spec == TYPE_HALF then
+            after@.half_literal_val := holder;
+        elsif to_spec == TYPE_WORD then
+            after@.word_literal_val := holder;
+        else
+            after@.long_literal_val := holder;
+        endif;
+    endif;
+end;
+
+def literal_do_unary: func(expr: @expr_t, op: @[byte], op1: @expr_t)
+begin
+    /* expects expr to be already initialized with the target type */
+    if ! strcmp(op, "! ") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := ! OP1B; break;
+            when TYPE_HALF: RESH := ! OP1H; break;
+            when TYPE_WORD: RESW := ! OP1W; break;
+            when TYPE_DOBL: RESD := ! OP1D; break;
+            when TYPE_PTR:  RESD := ! OP1D; break;
+        endif;
+    elsif ! strcmp(op, "~") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := ~OP1B; break;
+            when TYPE_HALF: RESH := ~OP1H; break;
+            when TYPE_WORD: RESW := ~OP1W; break;
+            when TYPE_DOBL: RESD := ~OP1D; break;
+            when TYPE_PTR:  RESD := ~OP1D; break;
+        endif;
+    else
+        print_err("<bug>: literal_do_unary() invalid op\n", 0);
+    endif;
+end;
+
+def literal_do_binary: func(expr: @expr_t,
+                            op1 : @expr_t,
+                            op  : @[byte],
+                            op2 : @expr_t)
+begin
+
+    /* expects op1 and op2 to be of the same type,
+     * and expr to be already initialized with the target type
+     */
+
+    if ! strcmp(op, "+") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B + OP2B; break;
+            when TYPE_HALF: RESH := OP1H + OP2H; break;
+            when TYPE_WORD: RESW := OP1W + OP2W; break;
+            when TYPE_DOBL: RESD := OP1D + OP2D; break;
+            when TYPE_PTR:  RESD := OP1D + OP2D; break;
+        endif;
+    elsif ! strcmp(op, "-") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B - OP2B; break;
+            when TYPE_HALF: RESH := OP1H - OP2H; break;
+            when TYPE_WORD: RESW := OP1W - OP2W; break;
+            when TYPE_DOBL: RESD := OP1D - OP2D; break;
+            when TYPE_PTR:  RESD := OP1D - OP2D; break;
+        endif;
+    elsif ! strcmp(op, "*") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B * OP2B; break;
+            when TYPE_HALF: RESH := OP1H * OP2H; break;
+            when TYPE_WORD: RESW := OP1W * OP2W; break;
+            when TYPE_DOBL: RESD := OP1D * OP2D; break;
+            when TYPE_PTR:  RESD := OP1D * OP2D; break;
+        endif;
+    elsif ! strcmp(op, "/") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B / OP2B; break;
+            when TYPE_HALF: RESH := OP1H / OP2H; break;
+            when TYPE_WORD: RESW := OP1W / OP2W; break;
+            when TYPE_DOBL: RESD := OP1D / OP2D; break;
+            when TYPE_PTR:  RESD := OP1D / OP2D; break;
+        endif;
+    elsif ! strcmp(op, "%") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B % OP2B; break;
+            when TYPE_HALF: RESH := OP1H % OP2H; break;
+            when TYPE_WORD: RESW := OP1W % OP2W; break;
+            when TYPE_DOBL: RESD := OP1D % OP2D; break;
+            when TYPE_PTR:  RESD := OP1D % OP2D; break;
+        endif;
+    elsif ! strcmp(op, ":=") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B == OP2B; break;
+            when TYPE_HALF: RESH := OP1H == OP2H; break;
+            when TYPE_WORD: RESW := OP1W == OP2W; break;
+            when TYPE_DOBL: RESD := OP1D == OP2D; break;
+            when TYPE_PTR:  RESD := OP1D == OP2D; break;
+        endif;
+    elsif ! strcmp(op, "!=") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B != OP2B; break;
+            when TYPE_HALF: RESH := OP1H != OP2H; break;
+            when TYPE_WORD: RESW := OP1W != OP2W; break;
+            when TYPE_DOBL: RESD := OP1D != OP2D; break;
+            when TYPE_PTR:  RESD := OP1D != OP2D; break;
+        endif;
+    elsif ! strcmp(op, ">") then
+        if get_unsignedf() then
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1BU > OP2BU; break;
+                when TYPE_HALF: RESH := OP1HU > OP2HU; break;
+                when TYPE_WORD: RESW := OP1WU > OP2WU; break;
+                when TYPE_DOBL: RESD := OP1DU > OP2DU; break;
+                when TYPE_PTR:  RESD := OP1DU > OP2DU; break;
+            endif;
+        else
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1B > OP2B; break;
+                when TYPE_HALF: RESH := OP1H > OP2H; break;
+                when TYPE_WORD: RESW := OP1W > OP2W; break;
+                when TYPE_DOBL: RESD := OP1D > OP2D; break;
+                when TYPE_PTR:  RESD := OP1D > OP2D; break;
+            endif;
+        endif;
+    elsif ! strcmp(op, ">=") then
+        if get_unsignedf() then
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1BU >= OP2BU; break;
+                when TYPE_HALF: RESH := OP1HU >= OP2HU; break;
+                when TYPE_WORD: RESW := OP1WU >= OP2WU; break;
+                when TYPE_DOBL: RESD := OP1DU >= OP2DU; break;
+                when TYPE_PTR:  RESD := OP1DU >= OP2DU; break;
+            endif;
+        else
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1B >= OP2B; break;
+                when TYPE_HALF: RESH := OP1H >= OP2H; break;
+                when TYPE_WORD: RESW := OP1W >= OP2W; break;
+                when TYPE_DOBL: RESD := OP1D >= OP2D; break;
+                when TYPE_PTR:  RESD := OP1D >= OP2D; break;
+            endif;
+        endif;
+    elsif ! strcmp(op, "<") then
+        if get_unsignedf() then
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1BU < OP2BU; break;
+                when TYPE_HALF: RESH := OP1HU < OP2HU; break;
+                when TYPE_WORD: RESW := OP1WU < OP2WU; break;
+                when TYPE_DOBL: RESD := OP1DU < OP2DU; break;
+                when TYPE_PTR:  RESD := OP1DU < OP2DU; break;
+            endif;
+        else
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1B < OP2B; break;
+                when TYPE_HALF: RESH := OP1H < OP2H; break;
+                when TYPE_WORD: RESW := OP1W < OP2W; break;
+                when TYPE_DOBL: RESD := OP1D < OP2D; break;
+                when TYPE_PTR:  RESD := OP1D < OP2D; break;
+            endif;
+        endif;
+    elsif ! strcmp(op, "<=") then
+        if get_unsignedf() then
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1BU <= OP2BU; break;
+                when TYPE_HALF: RESH := OP1HU <= OP2HU; break;
+                when TYPE_WORD: RESW := OP1WU <= OP2WU; break;
+                when TYPE_DOBL: RESD := OP1DU <= OP2DU; break;
+                when TYPE_PTR:  RESD := OP1DU <= OP2DU; break;
+            endif;
+        else
+            switch(op1@.type@.specifier) {
+                when TYPE_BYTE: RESB := OP1B <= OP2B; break;
+                when TYPE_HALF: RESH := OP1H <= OP2H; break;
+                when TYPE_WORD: RESW := OP1W <= OP2W; break;
+                when TYPE_DOBL: RESD := OP1D <= OP2D; break;
+                when TYPE_PTR:  RESD := OP1D <= OP2D; break;
+            endif;
+        endif;
+    elsif ! strcmp(op, "|") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B | OP2B; break;
+            when TYPE_HALF: RESH := OP1H | OP2H; break;
+            when TYPE_WORD: RESW := OP1W | OP2W; break;
+            when TYPE_DOBL: RESD := OP1D | OP2D; break;
+            when TYPE_PTR:  RESD := OP1D | OP2D; break;
+        endif;
+    elsif ! strcmp(op, "&") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B & OP2B; break;
+            when TYPE_HALF: RESH := OP1H & OP2H; break;
+            when TYPE_WORD: RESW := OP1W & OP2W; break;
+            when TYPE_DOBL: RESD := OP1D & OP2D; break;
+            when TYPE_PTR:  RESD := OP1D & OP2D; break;
+        endif;
+    elsif ! strcmp(op, "^") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B ^ OP2B; break;
+            when TYPE_HALF: RESH := OP1H ^ OP2H; break;
+            when TYPE_WORD: RESW := OP1W ^ OP2W; break;
+            when TYPE_DOBL: RESD := OP1D ^ OP2D; break;
+            when TYPE_PTR:  RESD := OP1D ^ OP2D; break;
+        endif;
+    elsif ! strcmp(op, ">>") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B >> OP2B; break;
+            when TYPE_HALF: RESH := OP1H >> OP2H; break;
+            when TYPE_WORD: RESW := OP1W >> OP2W; break;
+            when TYPE_DOBL: RESD := OP1D >> OP2D; break;
+            when TYPE_PTR:  RESD := OP1D >> OP2D; break;
+        endif;
+    elsif ! strcmp(op, "<<") then
+        switch(op1@.type@.specifier) {
+            when TYPE_BYTE: RESB := OP1B << OP2B; break;
+            when TYPE_HALF: RESH := OP1H << OP2H; break;
+            when TYPE_WORD: RESW := OP1W << OP2W; break;
+            when TYPE_DOBL: RESD := OP1D << OP2D; break;
+            when TYPE_PTR:  RESD := OP1D << OP2D; break;
+        endif;
+    else
+        print_err("<bug>: literal_do_binary() invalid op\n", 0);
+    endif;
+end;
+
+def eval_literal_int: func(str: @[byte]) returns four
+    def val: four;
+    def i  : four;
+begin
+    val := 0;
+    if str[0] == '\'' then
+        /* character */
+        if str[1] == '\\' then
+            /* escaped */
+            switch(str[2]) {
+                when 'n':
+                    val := '\n';
+                    break;
+                when 'r':
+                    val := '\r';
+                    break;
+                when 't':
+                    val := '\t';
+                    break;
+                when 'f':
+                    val := '\f';
+                    break;
+                when 'v':
+                    val := '\v';
+                    break;
+                when others:
+                    val := str[2];
+            endif;
+        else
+            val := str[1];
+        endif;
+    elsif str[0] == '0' and (str[1] == 'x' or str[1] == 'X') then
+        /* hexa */
+        i := 2;
+        while(str[i]) {
+            if str[i] >= '0' and str[i] <= '9' then
+                val := val*16 + str[i] - '0';
+            elsif str[i] >= 'A' and str[i] <= 'F' then
+                val := val*16 + str[i] - 'A' + 10;
+            else
+                val := val*16 + str[i] - 'a' + 10;
+            endif;
+            i++;
+        endif;
+    elsif str[0] == '0' and (str[1] == 'o' or str[1] == 'O') then
+        /* octal */
+        i := 2;
+        while(str[i]) {
+            val := val*8 + str[i] - '0';
+            i++;
+        endif;
+    else
+        /* decimal */
+        i := 0;
+        while str[i] do
+            val := val*10 + str[i] - '0';
+            i++;
+        endif;
+    endif;
+    return val;
+end;

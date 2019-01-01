@@ -1,0 +1,81 @@
+#include <common.inc>
+
+def alloc_type: func() returns @type_t
+    def type: @type_t;
+begin
+    type             := malloc(sizeof(type_t)) as @type_t;
+    type@.specifier  := TYPE_VOID;
+    type@.complete   := 0;
+    type@.subcount   := 0;
+    type@.subtype    := NULL;
+    type@.rettype    := NULL;
+    type@.param_list := 0;
+    return type;
+end;
+
+def alloc_sym: func() returns @sym_t
+    def sym: @sym_t;
+begin
+    sym        := malloc(sizeof(sym_t)) as @sym_t;
+    sym@.next  := NULL;
+    sym@.name  := "__INITNAME__";
+    sym@.val   := "__INITVAL__";
+    sym@.type  := alloc_type();
+    sym@.scope := 0;
+    sym@.decl  := 0;
+    return sym;
+end;
+
+def alloc_expr: func() returns @expr_t
+    def expr: @expr_t;
+begin
+    expr          := malloc(sizeof(expr_t)) as @expr_t;
+    expr@.addr    := "__INITADDR__";
+    expr@.literal := 0;
+    expr@.lvalue  := 0;
+    expr@.indir   := 0;
+    expr@.type    := alloc_type();
+    return expr;
+end;
+
+def alloc_loc: func() returns @loc_t
+    def loc: @loc_t;
+begin
+    loc            := malloc(sizeof(loc_t)) as @loc_t;
+    loc@.specifier := 0;
+    loc@.reg_name  := "__INITREG__";
+    loc@.reg_size  := 0;
+    return loc;
+end;
+
+def alloc_expr_list: func() returns @expr_list_t
+    def expr_list: @expr_list_t;
+begin
+    expr_list          := malloc(sizeof(expr_list_t)) as @expr_list_t;
+    expr_list@.count   := 0;
+    expr_list@.expr    := NULL;
+    expr_list@.sublist := NULL;
+    return expr_list;
+end;
+
+def alloc_id_list: func() returns @id_list_t
+    def id_list: @id_list_t;
+begin
+    id_list          := malloc(sizeof(id_list_t)) as @id_list_t;
+    id_list@.count   := 0;
+    id_list@.sym     := NULL;
+    id_list@.sublist := NULL;
+    return id_list;
+end;
+
+def alloc_param_list: func() returns @param_list_t
+    def param_list: @param_list_t;
+begin
+    param_list          := malloc(sizeof(param_list_t)) as @param_list_t;
+    param_list@.count   := 0;
+    param_list@.name    := "__INITNAME__";
+    param_list@.type    := NULL;
+    param_list@.sublist := NULL;
+    param_list@.any     := 0;
+    return param_list;
+end;

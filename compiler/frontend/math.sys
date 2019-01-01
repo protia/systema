@@ -1,0 +1,392 @@
+#include <common.inc>
+
+def parse_unary_post: func() returns @expr_t
+    /* local variables */
+    def expr:  @expr_t;
+    def expr1: @expr_t;
+    def done : four;
+    def op   : [10 byte];
+begin
+    /* unary_post: factor post_op* */
+    expr := parse_factor();
+    /* loop over post operators */
+    get_lexeme();
+    done := 0;
+    while(! done) {
+        if (! strcmp(&lex.val, "++") or
+            ! strcmp(&lex.val, "--") or
+            ! strcmp(&lex.val, "@")) {
+            /* copy operator */
+            strcpy(op, lex.val);
+            /* perform operation */
+            expr := do_unary(expr, op, 1);
+        elsif ! strcmp(&lex.val, "(") then
+            /* function call */
+            if expr@.type@.specifier != TYPE_FUNC then
+                print_err("error: call to a non-function", 0);
+                done := 1;
+            else
+                unget_lexeme();
+                expr := parse_func_call(expr);
+            endif;
+        elsif ! strcmp(&lex.val, "[") then
+            /* read array index */
+            expr1 := parse_expr();
+            /* read ] */
+            get_lexeme();
+            if strcmp(&lex.val, "]") then
+                unget_lexeme();
+                print_err("expected ]", 0);
+            endif;
+            /* resolve array subscript */
+            expr := do_binary(expr, "[", expr1);
+        elsif ! strcmp(&lex.val, ".") then
+            /* record member */
+            get_lexeme();
+            if lex.type != LEX_IDENTIFIER then
+                print_err("expected identifier", NULL);
+                unget_lexeme();
+            else
+                /* enclose the lexeme in an expression */
+                expr1 := alloc_expr();
+                expr1@.addr := malloc(strlen(&lex.val)+1);
+                strcpy(expr1@.addr, lex.val);
+                /* resolve record member operation */
+                expr := do_binary(expr, ".", expr1);
+            endif;
+        else
+            /* no more */
+            unget_lexeme();
+            done := 1;
+        endif;
+        /* next thing */
+        if ! done then
+            get_lexeme();
+        endif;
+    endif;
+    /* done */
+    return expr;
+end;
+
+def parse_unary_pre: func() returns @expr_t
+    /* local variables */
+    def expr: @expr_t;
+    def type: @type_t;
+    def op  : [10 byte];
+begin
+    /* unary_pre: (unary_op unary_pre | unary_post) */
+    get_lexeme();
+    if (! strcmp(&lex.val, "++") or
+        ! strcmp(&lex.val, "--") or
+        ! strcmp(&lex.val, "+")  or
+        ! strcmp(&lex.val, "-")  or
+        ! strcmp(&lex.val, "! ")  or
+        ! strcmp(&lex.val, "~")  or
+        ! strcmp(&lex.val, "&")) {
+        /* copy operator */
+        strcpy(op, lex.val);
+        /* parse next unary_pre expression */
+        expr := parse_unary_pre();
+        /* perform operation */
+        expr := do_unary(expr, op, 0);
+
+    } elsif (!strcmp(&lex.val, "sizeof")) {
+
+        /* parse ( */
+        get_lexeme();
+        if (strcmp(&lex.val, "(")) {
+            /* expected ( */
+            print_err("expected (", NULL);
+            unget_lexeme();
+        }
+
+        /* parse a type expression */
+        type = parse_type();
+
+        /* parse ) */
+        get_lexeme();
+        if (strcmp(&lex.val, ")")) {
+            /* expected ( */
+            print_err("expected )", NULL);
+            unget_lexeme();
+        }
+
+        /* allocate a temporary holder */
+        expr = alloc_expr();
+        expr->type = alloc_type();
+        expr->type->specifier = TYPE_WORD;
+        expr->type->complete = 1;
+        expr->literal = 1;
+        expr->word_literal_val=type_size(type);
+
+    else
+        /* no unary operator */
+        unget_lexeme();
+        expr := parse_unary_post();
+    endif;
+    /* done */
+    return expr;
+
+end;
+
+def parse_cast: func() returns @expr_t
+    /* local variables */
+    def expr: @expr_t;
+    def type: @type_t;
+    def done: four;
+begin
+    /* cast: unary_pre (as type)* */
+    expr := parse_unary_pre();
+    /* perform all casts */
+    done := 0;
+    while ! done do
+        get_lexeme();
+        if ! strcmp(&lex.val, "as") then
+            /* type casting!  */
+            type := parse_type();
+            expr := type_cast(expr, type);
+        else
+            unget_lexeme();
+            done := 1;
+        endif;
+    endif;
+    /* finished */
+    return expr;
+end;
+
+def parse_muldiv: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* muldiv: cast (('*'|'/'|'%') muldiv | lambda) */
+    expr1 := parse_cast();
+    /* lookahead */
+    get_lexeme();
+    /* *, /, or % ? */
+    while (! strcmp(&lex.val, "*") or
+           ! strcmp(&lex.val, "/") or
+           ! strcmp(&lex.val, "%")) {
+        /* mul/div/mod operator */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_cast();
+        /* generate code for mul/div/mod operation */
+        expr1 := do_binary(expr1, op, expr2);
+        /* get next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_addsub: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* addsub: muldiv (('+'|'-') addsub | lambda) */
+    expr1 := parse_muldiv();
+    /* lookahead */
+    get_lexeme();
+    /* + or - ? */
+    while ! strcmp(&lex.val, "+") or ! strcmp(&lex.val, "-") do
+        /* add/sub operator */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_muldiv();
+        /* generate code for add/sub operation */
+        expr1 := do_binary(expr1, op, expr2);
+        /* get next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_shift: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* shift: addsub (('<<'|'>>') shift | lambda) */
+    expr1 := parse_addsub();
+    /* lookahead */
+    get_lexeme();
+    /* >> or << ? */
+    while ! strcmp(&lex.val, ">>") or ! strcmp(&lex.val, "<<") do
+        /* shift operator */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_addsub();
+        /* generate code for shifting */
+        expr1 := do_binary(expr1, op, expr2);
+        /* get next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_relation: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* relation: shift (('>'|'>='|'<'|'<=') relation | lambda) */
+    expr1 := parse_shift();
+    /* lookahead */
+    get_lexeme();
+    /* relop ? */
+    while (! strcmp(&lex.val, ">") or
+           ! strcmp(&lex.val, ">=") or
+           ! strcmp(&lex.val, "<") or
+           ! strcmp(&lex.val, "<=")) {
+        /* relation operator */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_shift();
+        /* generate code for relation operator */
+        expr1 := do_binary(expr1, op, expr2);
+        /* get next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_equality: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* equality: relation (('=='|'!=') equality | lambda) */
+    expr1 := parse_relation();
+    /* lookahead */
+    get_lexeme();
+    /* == or != ? */
+    while ! strcmp(&lex.val, "==") or ! strcmp(&lex.val, "!=") do
+        /* equality */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_relation();
+        /* generate code for equality */
+        expr1 := do_binary(expr1, op, expr2);
+        /* get next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_bitwise_and: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* bitwise_and: equality ('&' bitwise_and | lambda) */
+    expr1 := parse_equality();
+    /* lookahead */
+    get_lexeme();
+    /* &? */
+    while ! strcmp(&lex.val, "&") do
+        /* bitwise and */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_equality();
+        /* generate code for bitwise AND'ing */
+        expr1 := do_binary(expr1, op, expr2);
+        /* move to next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_bitwise_xor: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* bitwise_xor: bitwise_and ('^' bitwise_xor | lambda) */
+    expr1 := parse_bitwise_and();
+    /* lookahead */
+    get_lexeme();
+    /* ^? */
+    while ! strcmp(&lex.val, "^") do
+        /* bitwise xor */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_bitwise_and();
+        /* generate code for bitwise XOR'ing */
+        expr1 := do_binary(expr1, op, expr2);
+        /* move to next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;
+
+def parse_bitwise_or: func() returns @expr_t
+    /* local variables */
+    def expr : @expr_t;
+    def expr1: @expr_t;
+    def expr2: @expr_t;
+    def op   : [10 byte];
+begin
+    /* bitwise_or: bitwise_xor ('|' bitwise_or | lambda) */
+    expr1 := parse_bitwise_xor();
+    /* lookahead */
+    get_lexeme();
+    /* |? */
+    while ! strcmp(&lex.val, "|") do
+        /* bitwise or */
+        strcpy(op, lex.val);
+        /* parse second operand */
+        expr2 := parse_bitwise_xor();
+        /* generate code for bitwise OR'ing */
+        expr1 := do_binary(expr1, op, expr2);
+        /* move to next */
+        get_lexeme();
+    endif;
+    /* no more */
+    unget_lexeme();
+    expr := expr1;
+    /* done */
+    return expr;
+end;

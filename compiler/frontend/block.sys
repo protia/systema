@@ -1,0 +1,542 @@
+#include <common.inc>
+
+def parse_if: func()
+    def expr:     @expr_t;
+    def lbl2:     @[byte];
+    def lbl1:     @[byte];
+    def reg:      four;
+    def done:     four;
+    def has_else: four;
+begin
+
+    /* initialize variables */
+    lbl1     := get_new_label();
+    lbl2     := get_new_label();
+    reg      := emit_get_reg(REG_ACC, 0);
+    done     := 0;
+    has_else := 0;
+
+    /* if */
+    get_lexeme();
+
+    /* expr */
+    emit_comment("IF: CONDITION EXPRESSION EVALUATION");
+    expr := parse_expr();
+
+    /* expr must be numerical */
+    if expr@.type@.specifier == TYPE_BYTE or
+       expr@.type@.specifier == TYPE_HALF or
+       expr@.type@.specifier == TYPE_WORD or
+       expr@.type@.specifier == TYPE_DOBL or
+       expr@.type@.specifier == TYPE_PTR
+    then
+        /* branch if zero */
+        emit_comment("IF: BRANCH IF COND EXPR == ZERO");
+        emit_load(expr, reg);
+        emit_bze(expr@.type, reg, lbl1);
+    else
+        print_err("invalid type for if condition", 0);
+    endif;
+
+    /* then */
+    get_lexeme();
+    if strcmp(&lex.val, "then") then
+        unget_lexeme();
+        print_err("expected then", 0);
+    endif;
+
+    /* statements */
+    emit_comment("IF: TRUE STATEMENT BLOCK");
+    parse_stmt_list();
+
+    /* jmp to end of if */
+    emit_jmp(lbl2);
+
+    /* lookahead */
+    get_lexeme();
+    unget_lexeme();
+
+    /* else/elseif? */
+    if strcmp(&lex.val, "endif") then
+        /* either elsif, else, or endif */
+        while ! done do
+            get_lexeme();
+            if ! strcmp(&lex.val, "elsif") or ! strcmp(&lex.val, "else") then
+                /* lbl1 goes here */
+                emit_label(lbl1);
+                /* allocate new label */
+                lbl1 := get_new_label();
+                /* for elseif, evaluate condition */
+                if ! strcmp(&lex.val, "elsif") then
+                    /* expr */
+                    emit_comment("IF: ELSIF CONDITION EXPRESSION");
+                    expr := parse_expr();
+                    /* expr must be numerical */
+                    if expr@.type@.specifier == TYPE_BYTE or
+                       expr@.type@.specifier == TYPE_HALF or
+                       expr@.type@.specifier == TYPE_WORD or
+                       expr@.type@.specifier == TYPE_DOBL or
+                       expr@.type@.specifier == TYPE_PTR
+                    then
+                        /* branch if zero */
+                        emit_comment("IF: BRANCH IF COND EXPR == ZERO");
+                        emit_load(expr, reg);
+                        emit_bze(expr@.type, reg, lbl1);
+                    else
+                        print_err("invalid type for if condition", 0);
+                    endif;
+                    /* then */
+                    get_lexeme();
+                    if strcmp(&lex.val, "then") then
+                        unget_lexeme();
+                        print_err("expected then", 0);
+                    endif;
+                else
+                    /* done */
+                    done := 1;
+                    has_else := 1;
+                endif;
+                /* statements */
+                if ! has_else then
+                    emit_comment("IF: ELSIF STATEMENT BLOCK");
+                else
+                    emit_comment("IF: ELSE STATEMENT BLOCK");
+                endif;
+                parse_stmt_list();
+                /* jmp to end of if */
+                if ! has_else then
+                    emit_jmp(lbl2);
+                endif;
+            else
+                unget_lexeme();
+                done := 1;
+            endif;
+        loop;
+        /* else encountered? */
+        if ! has_else then
+            emit_comment("IF: PSEUDO ELSE CLAUSE");
+            emit_label(lbl1);
+            emit_nop();
+        endif;
+
+        /* label of final */
+        emit_label(lbl2);
+    else
+        /* enough playing */
+        emit_label(lbl1);
+    endif;
+
+    /* done */
+    emit_comment("IF: END IF");
+
+    /* endif */
+    get_lexeme();
+    if strcmp(&lex.val, "endif") then
+        print_err("expected endif", 0);
+        unget_lexeme();
+    endif;
+
+end;
+
+def parse_case: func()
+
+    /* labels */
+    def lbl_final : @[byte];
+    def lbl_next  : @[byte];
+    def lbl_sub   : @[byte];
+
+    /* sub expressions */
+    def case_expr : @expr_t;
+    def expr_list : @expr_list_t;
+
+    /* flags */
+    def done      : four;
+    def got_others: four;
+
+    /* registers */
+    def reg1      : four;
+    def reg2      : four;
+
+begin
+
+    /* initialize variables */
+    lbl_next   := NULL;
+    done       := 0;
+    got_others := 0;
+    reg1       := emit_get_reg(REG_ACC, 0);
+    reg2       := emit_get_reg(REG_ACC, 1);
+
+    /* parse 'case' */
+    get_lexeme();
+
+    /* allocate label for exit */
+    lbl_final := get_new_label();
+
+    /* parse case expression */
+    emit_comment("CASE: EXPRESSION EVALUATION");
+    case_expr := parse_expr();
+
+    /* when */
+    while !done do
+        get_lexeme();
+        if strcmp(&lex.val, "when") then
+            /* ! when */
+            unget_lexeme();
+            done := 1;
+        else
+            /* when */
+            if lbl_next then
+                emit_label(lbl_next);
+            endif;
+            /* fetch expression list */
+            get_lexeme();
+            if strcmp(&lex.val, "others") then
+                /* when expr, expr, ... : */
+                unget_lexeme();
+                /* get new labels */
+                lbl_sub  := get_new_label();
+                lbl_next := get_new_label();
+                /* evaluate expression list */
+                emit_comment("CASE: EVALUATE EXPRESSION LIST");
+                expr_list := parse_expr_list();
+                if expr_list@.count == 0 then
+                    print_err("empty expression list for case when", 0);
+                endif;
+                /* branch if all expressions do ! match main one */
+                emit_comment("CASE: COMPARE AND BRANCH");
+                while expr_list@.count do
+                    /* type cast */
+                    if type_match(expr_list@.expr@.type, case_expr@.type, 1) then
+                        expr_list@.expr := type_cast(expr_list@.expr, case_expr@.type);
+                    endif;
+                    /* emit comparison code */
+                    emit_load(case_expr, reg1);
+                    emit_load(expr_list@.expr, reg2);
+                    emit_beq(case_expr@.type, reg1, reg2, lbl_sub);
+                    /* next expression */
+                    expr_list := expr_list@.sublist;
+                loop;
+                emit_jmp(lbl_next);
+                /* expect : */
+                get_lexeme();
+                if strcmp(&lex.val, ":") then
+                    unget_lexeme();
+                    print_err("expected :", 0);
+                endif;
+                /* execute action */
+                emit_label(lbl_sub);
+                emit_comment("CASE: EXECUTE ACTION");
+                parse_stmt_list();
+                emit_jmp(lbl_final);
+            else
+                /* when others */
+                got_others := 1;
+                done := 1;
+                /* expect : */
+                get_lexeme();
+                if strcmp(&lex.val, ":") then
+                    unget_lexeme();
+                    print_err("expected :", 0);
+                endif;
+                /* execute action */
+                emit_comment("CASE: OTHERS BLOCK");
+                parse_stmt_list();
+            endif;
+        endif;
+    loop;
+
+    /* if no (when others) is defined, define it */
+    if !got_others and lbl_next then
+        emit_label(lbl_next);
+        emit_comment("CASE: PSEUDO OTHERS CLAUSE");
+    endif;
+
+    /* esac */
+    get_lexeme();
+    if strcmp(&lex.val, "esac") then
+        unget_lexeme();
+        print_err("expected esac", 0);
+    endif;
+
+    /* done */
+    emit_label(lbl_final);
+    emit_comment("CASE: ESAC");
+
+end;
+
+def parse_for: func()
+
+    /* sub expressions */
+    def index : @expr_t;
+    def init  : @expr_t;
+    def limit : @expr_t;
+    def stepp : @expr_t;
+    def tmp   : @expr_t;
+
+    /* labels */
+    def lbl1  : @[byte];
+    def lbl2  : @[byte];
+
+    /* registers */
+    def reg1  : four;
+    def reg2  : four;
+
+    /* flags */
+    def downn : four;
+    def unsign: four;
+
+begin
+
+    /* initialize variables */
+    reg1   := emit_get_reg(REG_ACC, 0);
+    reg2   := emit_get_reg(REG_ACC, 1);
+    downn  := 0;
+    unsign := 0;
+
+    /* parse 'for' */
+    get_lexeme();
+
+    /* allocate labels */
+    lbl1 := get_new_label();
+    lbl2 := get_new_label();
+
+    /* parse index */
+    index := parse_expr();
+    if ! index@.lvalue then
+        print_err("index must be an lvalue", 0);
+    elsif (index@.type@.specifier != TYPE_BYTE and
+           index@.type@.specifier != TYPE_HALF and
+           index@.type@.specifier != TYPE_WORD and
+           index@.type@.specifier != TYPE_DOBL and
+           index@.type@.specifier != TYPE_PTR)
+    then
+        print_err("index must be of numeric type", 0);
+    endif;
+
+    /* from */
+    get_lexeme();
+    if strcmp(&lex.val, "from") then
+        unget_lexeme();
+        print_err("expected from", 0);
+    endif;
+
+    /* read initializer */
+    emit_comment("FOR: PEFROM INITIALIZATION");
+    init := parse_expr();
+    do_assign(index, init);
+
+    /* condition evaluation */
+    emit_label(lbl1);
+    emit_comment("FOR: CONDITION EVALUATION");
+
+    /* unsigned */
+    get_lexeme();
+    if ! strcmp(&lex.val, "unsigned") then
+        unsign := 1;
+    else
+        unget_lexeme();
+    endif;
+
+    /* down */
+    get_lexeme();
+    if ! strcmp(&lex.val, "down") then
+        downn := 1;
+    else
+        unget_lexeme();
+    endif;
+
+    /* to */
+    get_lexeme();
+    if strcmp(&lex.val, "to") then
+        unget_lexeme();
+        print_err("expected to", 0);
+    endif;
+
+    /* parse the condition */
+    limit := parse_expr();
+
+    /* code to check the condition */
+    emit_comment("FOR: CHECK CONDITION");
+    emit_load(index, reg1);
+    emit_load(limit, reg2);
+    if downn then
+        if unsign then
+            emit_blt(index@.type, reg1, reg2, lbl2);
+        else
+            emit_blt_unsigned(index@.type, reg1, reg2, lbl2);
+        endif;
+    else
+        if unsign then
+            emit_bgt(index@.type, reg1, reg2, lbl2);
+        else
+            emit_bgt_unsigned(index@.type, reg1, reg2, lbl2);
+        endif;
+    endif;
+
+    /* step? */
+    get_lexeme();
+    if strcmp(&lex.val, "step") then
+        unget_lexeme();
+        stepp := alloc_expr();
+        stepp@.literal := 1;
+        stepp@.type@.specifier := TYPE_WORD;
+        if !downn then
+            stepp@.word_literal_val := 1;
+        else
+            stepp@.word_literal_val := -1;
+        endif;
+    else
+        stepp := parse_expr();
+        if ! stepp@.literal then
+            print_err("for loop step must be literal", 0);
+        endif;
+    endif;
+
+    /* do */
+    get_lexeme();
+    if strcmp(&lex.val, "do") then
+        unget_lexeme();
+        print_err("expected do", 0);
+    endif;
+
+    /* statements */
+    emit_comment("FOR: EXECUTE BLOCK");
+    parse_stmt_list();
+
+    /* increment */
+    emit_comment("FOR: PERFORM INCREMENT");
+    tmp := do_binary(index, "+", stepp);
+    do_assign(index, tmp);
+
+    /* jump back */
+    emit_comment("FOR: JUMP BACK");
+    emit_jmp(lbl1);
+
+    /* loop keyword */
+    get_lexeme();
+    if strcmp(&lex.val, "loop") then
+        unget_lexeme();
+        print_err("expected loop", 0);
+    endif;
+
+    /* done */
+    emit_label(lbl2);
+    emit_comment("FOR: LOOP DONE");
+
+end;
+
+def parse_while: func()
+    def cond: @expr_t;
+    def lbl1: @[byte];
+    def lbl2: @[byte];
+    def reg1: four;
+begin
+
+    /* initialize variables */
+    reg1 := emit_get_reg(REG_ACC, 0);
+
+    /* parse 'while' */
+    get_lexeme();
+
+    /* allocate labels */
+    lbl1 := get_new_label();
+    lbl2 := get_new_label();
+
+    /* parse cond */
+    emit_label(lbl1);
+    emit_comment("WHILE: EVALUATE CONDITION");
+    cond := parse_expr();
+    if cond@.type@.specifier != TYPE_BYTE and
+       cond@.type@.specifier != TYPE_HALF and
+       cond@.type@.specifier != TYPE_WORD and
+       cond@.type@.specifier != TYPE_DOBL and
+       cond@.type@.specifier != TYPE_PTR
+    then
+        print_err("condition must be of numeric type", 0);
+    endif;
+
+    /* check condition */
+    emit_comment("WHILE: CHECK CONDITION");
+    emit_load(cond, reg1);
+    emit_bze(cond@.type, reg1, lbl2);
+
+    /* do keyword */
+    get_lexeme();
+    if strcmp(&lex.val, "do") then
+        unget_lexeme();
+        print_err("expected do", 0);
+    endif;
+
+    /* process while body */
+    emit_comment("WHILE: PROCESS BODY");
+    parse_stmt_list();
+
+    /* jump back */
+    emit_comment("FOR: JUMP BACK");
+    emit_jmp(lbl1);
+
+    /* loop keyword */
+    get_lexeme();
+    if strcmp(&lex.val, "loop") then
+        unget_lexeme();
+        print_err("expected loop", 0);
+    endif;
+
+    /* done */
+    emit_label(lbl2);
+    emit_comment("WHILE: LOOP DONE");
+
+end;
+
+def parse_stmt_list: func()
+    def done: four;
+begin
+
+    done := 0;
+    while !done do
+        get_lexeme();
+        if !strcmp(&lex.val, "end"   ) or
+           !strcmp(&lex.val, "elsif" ) or
+           !strcmp(&lex.val, "else"  ) or
+           !strcmp(&lex.val, "endif" ) or
+           !strcmp(&lex.val, "when"  ) or
+           !strcmp(&lex.val, "esac"  ) or
+           !strcmp(&lex.val, "loop"  ) or
+           !strcmp(&lex.val, "return") or
+           lex.type == EOF
+        then
+            /* done */
+            unget_lexeme();
+            done := 1;
+        else
+            if ! strcmp(&lex.val, "if") then
+                /* if condition */
+                unget_lexeme();
+                parse_if();
+            elsif ! strcmp(&lex.val, "case") then
+                /* case */
+                unget_lexeme();
+                parse_case();
+            elsif ! strcmp(&lex.val, "for") then
+                /* for loop */
+                unget_lexeme();
+                parse_for();
+            elsif ! strcmp(&lex.val, "while") then
+                /* while loop */
+                unget_lexeme();
+                parse_while();
+            else
+                /* expression list */
+                unget_lexeme();
+                emit_comment("EXPRESSION STATEMENT");
+                parse_expr_list();
+            endif;
+            /* semicolon */
+            get_lexeme();
+            if strcmp(&lex.val, ";") then
+                print_err("expected ;", 0);
+            endif;
+        endif;
+    loop;
+
+end;
