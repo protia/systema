@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def parse_expr: func() returns @expr_t
     def expr: @expr_t;

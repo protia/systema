@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def parse_record_header: func(type: @type_t)
     /* local variables */

@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def parse_id_list: func() returns @id_list_t
     def done : four;

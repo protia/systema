@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def emit_fd: @FILE;
 def cur_section: four;

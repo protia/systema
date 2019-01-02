@@ -1,0 +1,61 @@
+#define NULL (0 as @void)
+
+dec printf:  func(fmt: @[byte], ...);
+dec sprintf: func(str: @[byte], fmt: @[byte], ...);
+dec system:  func(cmd: @[byte]) returns four;
+
+def main: func(argc: four, argv: @[@[byte]]) returns four
+   def infiles : [10000 byte];
+   def outfile : [1000 byte];
+   def command : [1000 byte];
+   def i       : four;
+   def err     : four;
+begin
+
+   /* initialize local variables */
+   infiles[0] := 0;
+   outfile[0] := 0;
+   command[0] := 0;
+   i          := 1;
+   err        := 0;
+
+   /* loop over parameters */
+   while i < argc do
+      if argv@[i]@[0] == 'i' and
+         argv@[i]@[1] == 'n' and
+         argv@[i]@[2] == '='
+      then
+         if infiles[0] == 0 then
+            sprintf(&infiles, "%s", &argv@[i]@[3]);
+         else
+            sprintf(&infiles, "%s %s", &infiles, &argv@[i]@[3]);
+         endif;
+      elsif
+         argv@[i]@[0] == 'o' and
+         argv@[i]@[1] == 'u' and
+         argv@[i]@[2] == 't' and
+         argv@[i]@[3] == '='
+      then
+         sprintf(&outfile, "%s", &argv@[i]@[4]);
+      else
+         printf("Unknown argument: %s, ignored.\n", argv@[i]);
+      endif;
+      i++;
+   loop;
+
+   /* infile & outfile initialized? */
+   if infiles[0] == 0 or outfile[0] == 0 then
+      printf("Usage: %s in=<infile1> [in=<infile2>] ... out=<outfile>\n", argv@[0]);
+      err := 1;
+   endif;
+
+   /* now process the cmd */
+   if err == 0 then
+      sprintf(&command, "gcc -o %s %s", &outfile, &infiles);
+      err := system(&command);
+   endif;
+
+   /* done */
+   return err;
+
+end;

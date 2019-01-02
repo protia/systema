@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def parse_dim_keyword: func() returns four
     def dim_type: four;

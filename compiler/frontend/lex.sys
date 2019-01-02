@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def cur_line   : [400 byte];
 def line_size  : four;

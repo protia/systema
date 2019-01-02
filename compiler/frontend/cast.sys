@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def type_cast: func(before: @expr_t, new_type: @type_t) returns @expr_t
     def after    : @expr_t;

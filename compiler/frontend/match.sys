@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def type_match: func(type1: @type_t, type2: @type_t, strict: four) returns four
     def param_list1: @param_list_t;

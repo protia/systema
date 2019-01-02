@@ -19,7 +19,7 @@ BUILD_DIR=`realpath $2`
 
 # install the compiler
 mkdir -p $INSTALL_DIR
-cp $BUILD_DIR/compiler3/preproc/sysp   $INSTALL_DIR/sysp
+cp $BUILD_DIR/compiler3/macro/sysm     $INSTALL_DIR/sysm
 cp $BUILD_DIR/compiler3/frontend/sysf  $INSTALL_DIR/sysf
 cp $BUILD_DIR/compiler3/backend/sysb   $INSTALL_DIR/sysb
 cp $BUILD_DIR/compiler3/assembler/sysa $INSTALL_DIR/sysa

@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 dec emit_fd: @FILE; /* from emit.c */
 def regs     : [1000 reg_t];

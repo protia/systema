@@ -1,4 +1,4 @@
-#include <common.inc>
+#include "common.inc"
 
 def do_assign: func(dest: @expr_t, src: @expr_t)
     def reg: four;
