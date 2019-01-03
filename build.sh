@@ -16,7 +16,7 @@ set -e
 SAMPLES=hello
 
 # compiler components
-COMPONENTS="macro,sysm frontend,sysf backend,sysb assembler,sysa linker,sysl"
+COMPONENTS="utils,none macro,sysm frontend,sysf backend,sysb assembler,sysa linker,sysl"
 
 # Get source directory path
 TOP_SRC_DIR=`realpath $(dirname $0)`
@@ -63,9 +63,11 @@ for component in $COMPONENTS; do
 	done
 
         # link all the files together
-        obj_list=`ls $BUILD_SUBDIR/*.o`
-	exe_file="$BUILD_SUBDIR/$SNAME"
-	gcc -o $exe_file $obj_list
+        if [ $SNAME != none ]; then
+		obj_list=`ls $BUILD_SUBDIR/*.o`
+		exe_file="$BUILD_SUBDIR/$SNAME"
+		gcc -o $exe_file $obj_list
+	fi
 
 done
 
@@ -107,18 +109,21 @@ for component in $COMPONENTS; do
 		obj_file="$BUILD_SUBDIR/$fname".obj
 		# steps
 		echo "[+] Compiling: $sys_file"
-		$SYSM in=$sys_file out=$pre_file
+		$SYSM in=$sys_file out=$pre_file inc=$SPATH/utils inc=$SRC_SUBDIR
 		$SYSF in=$pre_file out=$int_file
 		$SYSB in=$int_file out=$asm_file
 		$SYSA in=$asm_file out=$obj_file
 	done
 
         # link all the files together
-        obj_list=`ls $BUILD_SUBDIR/*.obj | awk '{print "in="$0}'`
-	pro_file="$BUILD_SUBDIR/$SNAME"
-	$SYSL out=$pro_file $obj_list
-
+       if [ $SNAME != none ]; then
+	        obj_list=`ls $BUILD_SUBDIR/*.obj $DPATH/utils/*.obj | awk '{print "in="$0}'`
+		pro_file="$BUILD_SUBDIR/$SNAME"
+		$SYSL out=$pro_file $obj_list
+	fi;
 done
+
+: '
 
 # Use the compiler to compile itself
 echo "*** PASS 2: Use compiler1 to compile compiler2 ***" ;
@@ -158,17 +163,18 @@ for component in $COMPONENTS; do
 		obj_file="$BUILD_SUBDIR/$fname".obj
 		# steps
 		echo "[+] Compiling: $sys_file"
-		$SYSM in=$sys_file out=$pre_file
+		$SYSM in=$sys_file out=$pre_file inc=$SPATH/utils
 		$SYSF in=$pre_file out=$int_file
 		$SYSB in=$int_file out=$asm_file
 		$SYSA in=$asm_file out=$obj_file
 	done
 
         # link all the files together
-        obj_list=`ls $BUILD_SUBDIR/*.obj | awk '{print "in="$0}'`
-	pro_file="$BUILD_SUBDIR/$SNAME"
-	$SYSL out=$pro_file $obj_list
-
+        if [ $SNAME -ne none ]; then
+		obj_list=`ls $BUILD_SUBDIR/*.obj | awk '{print "in="$0}'`
+		pro_file="$BUILD_SUBDIR/$SNAME"
+		$SYSL out=$pro_file $obj_list
+	fi
 done
 
 # Use the compiler to compile itself
@@ -221,10 +227,11 @@ for component in $COMPONENTS; do
 	$SYSL out=$pro_file $obj_list
 
 done
+'
 
 # Compile the samples using last compiler built
 echo "*** build the samples using compiler 3 ***"
-CPATH=$COMPILER3_BUILD
+CPATH=$COMPILER1_BUILD
 for sample in $SAMPLES; do
 	mkdir -p $TOP_BUILD_DIR/samples
 	# files
@@ -246,6 +253,8 @@ for sample in $SAMPLES; do
 	# steps
 	$SYSM in=$sys_file out=$pre_file
 	$SYSF in=$pre_file out=$int_file
+
+	continue
 	$SYSB in=$int_file out=$asm_file
 	$SYSA in=$asm_file out=$obj_file
 	$SYSL in=$obj_file out=$pro_file

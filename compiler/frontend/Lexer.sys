@@ -1,0 +1,811 @@
+/* Utility library */
+#include <Utils.inc>
+
+/* Error module */
+#include "Error.inc"
+
+/* Lexer module */
+#include "Lexer.inc"
+
+/*****************************************************************************/
+/*                               Lexer                                       */
+/*****************************************************************************/
+
+/* Temporary buffer for string operations */
+def TempBuffer    : [4096 byte];
+
+/* File handler */
+def FileDesc      : FileDescT;
+
+/* Information about current line to print error data */
+def CurFileName   : @StringT;
+def CurLine       : @StringT;
+def CurLineSize   : Int32T;
+def CurLineNo     : Int32T;
+def CurLineOff    : Int32T;
+
+/* Information about current lexeme */
+def CurLexemeValue: [4096 byte];
+def CurLexemeSize : Int32T;
+def CurLexemeType : Int32T;
+
+/* Used to undo the effect of GetByte() */
+def HasUngetByte  : BooleanT;
+
+/* Language lexemes */
+def Operators     : [200 @StringT];
+def Keywords      : [200 @StringT];
+
+/*****************************************************************************/
+/*                             LexerInit                                     */
+/*****************************************************************************/
+
+def LexerInit: func(FileName: @StringT)
+
+   /* local variables */
+   def I     : four;
+   def Error : four;
+
+begin
+
+   /* initialize information about current line */
+   CurFileName  := FileName;
+   CurLine      := "";
+   CurLineSize  := 0;
+   CurLineNo    := 0;
+   CurLineOff   := 0;
+
+   /* no byte is ungot in initial CurByte */
+   HasUngetByte := 0;
+
+   /* initialize Operators */
+   I := 0;
+   Operators[I++] := "[";
+   Operators[I++] := "]";
+   Operators[I++] := "(";
+   Operators[I++] := ")";
+   Operators[I++] := "{";
+   Operators[I++] := "}";
+   Operators[I++] := ";";
+   Operators[I++] := ".";
+   Operators[I++] := ",";
+   Operators[I++] := "..";
+   Operators[I++] := "...";
+   Operators[I++] := "++";
+   Operators[I++] := "--";
+   Operators[I++] := "&";
+   Operators[I++] := "@";
+   Operators[I++] := "*";
+   Operators[I++] := "+";
+   Operators[I++] := "-";
+   Operators[I++] := "~";
+   Operators[I++] := "!";
+   Operators[I++] := "/";
+   Operators[I++] := "%";
+   Operators[I++] := "<<";
+   Operators[I++] := ">>";
+   Operators[I++] := "<";
+   Operators[I++] := ">";
+   Operators[I++] := "<=";
+   Operators[I++] := ">=";
+   Operators[I++] := "==";
+   Operators[I++] := "!=";
+   Operators[I++] := "^";
+   Operators[I++] := "|";
+   Operators[I++] := "?";
+   Operators[I++] := ":";
+   Operators[I++] := ":=";
+   Operators[I++] := "*=";
+   Operators[I++] := "/=";
+   Operators[I++] := "%=";
+   Operators[I++] := "+=";
+   Operators[I++] := "-=";
+   Operators[I++] := "<<=";
+   Operators[I++] := ">>=";
+   Operators[I++] := "&=";
+   Operators[I++] := "^=";
+   Operators[I++] := "|=";
+   Operators[I++] := "=";
+   Operators[I++] := NULL;
+
+   /* initialize Keywords */
+   I := 0;
+   Keywords[I++] := "def";
+   Keywords[I++] := "dec";
+   Keywords[I++] := "typ";
+   Keywords[I++] := "sub";
+   Keywords[I++] := "local";
+   Keywords[I++] := "as";
+   Keywords[I++] := "in";
+   Keywords[I++] := "code";
+   Keywords[I++] := "rodata";
+   Keywords[I++] := "data";
+   Keywords[I++] := "bss";
+   Keywords[I++] := "stack";
+   Keywords[I++] := "register";
+   Keywords[I++] := "byte";
+   Keywords[I++] := "twin";
+   Keywords[I++] := "four";
+   Keywords[I++] := "eigh";
+   Keywords[I++] := "func";
+   Keywords[I++] := "text";
+   Keywords[I++] := "record";
+   Keywords[I++] := "returns";
+   Keywords[I++] := "begin";
+   Keywords[I++] := "assembly";
+   Keywords[I++] := "sizeof";
+   Keywords[I++] := "typeof";
+   Keywords[I++] := "if";
+   Keywords[I++] := "unsigned";
+   Keywords[I++] := "and";
+   Keywords[I++] := "or";
+   Keywords[I++] := "then";
+   Keywords[I++] := "elsif";
+   Keywords[I++] := "else";
+   Keywords[I++] := "endif";
+   Keywords[I++] := "case";
+   Keywords[I++] := "when";
+   Keywords[I++] := "others";
+   Keywords[I++] := "esac";
+   Keywords[I++] := "for";
+   Keywords[I++] := "from";
+   Keywords[I++] := "down";
+   Keywords[I++] := "to";
+   Keywords[I++] := "step";
+   Keywords[I++] := "do";
+   Keywords[I++] := "while";
+   Keywords[I++] := "loop";
+   Keywords[I++] := "return";
+   Keywords[I++] := "end";
+   Keywords[I++] := NULL;
+
+   /* File specified? */
+   if FileName == NULL then
+      FileDesc  := NULL;
+      ErrorTrigger();
+      ErrorHeader(NULL);
+      ErrorBodyStr("No input file specified.");
+      ErrorFooter(NULL);
+   else
+      /* try to open the file */
+      FileDesc  := UtilsFileOpen(FileName, "r");
+      /* print error if failed */
+      if FileDesc == NULL then
+         ErrorTrigger();
+         ErrorHeader(NULL);
+         ErrorBodyStr("Can't open ");
+         ErrorBodyStr(FileName);
+         ErrorBodyStr(" for reading.");
+         ErrorFooter(NULL);
+      endif;
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                            LexerCleanup                                   */
+/*****************************************************************************/
+
+def LexerCleanup: func()
+begin
+
+   /* close the open file */
+   if FileDesc != NULL then
+      UtilsFileClose(FileDesc);
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                           LexerGetByte                                    */
+/*****************************************************************************/
+
+def LexerGetByte: func() returns ByteT
+
+   /* local variables */
+   def Ret       : ByteT;
+   def ReadCount : ByteT;
+   def I         : Int32T;
+   def Start     : Int32T;
+   def Size      : Int32T;
+
+begin
+
+   /* initialize Ret */
+   Ret := 0;
+
+   /* somebody called UngetByte()? */
+   if HasUngetByte == TRUE then
+
+      /* reset the flag */
+      HasUngetByte := 0;
+
+      /* return current previous byte */
+      Ret := CurLine@[CurLineOff-1];
+
+   elsif CurLineSize == CurLineOff then
+
+      /* we need to read a new line */
+      ReadCount := UtilsFileRead(&TempBuffer, FileDesc);
+
+      /* line is empty? */
+      if ReadCount == 0 then
+
+         /* EOF */
+         Ret := EOF;
+
+      elsif TempBuffer[0] == '#' then
+
+         /* parse hash line */
+         CurLineNo := UtilsStringToInt(&TempBuffer[1] as @StringT);
+
+         /* loop until we find a '"' */
+         I := 0;
+         while TempBuffer[I] != '"' and TempBuffer[I] != 0 do
+            I++;
+         loop;
+         if TempBuffer[I] == '"' then
+            I++;
+         endif;
+         Start := I;
+
+         /* loop until we find another '"' */
+         while TempBuffer[I] != '"' and TempBuffer[I] != 0 do
+            I++;
+         loop;
+         TempBuffer[I] := 0;
+
+         /* now mark the end of this token */
+         Size := I-Start;
+
+         /* allocate string */
+         CurFileName := UtilsStringAlloc(Size);
+
+         /* copy the token */
+         UtilsStringCopy(CurFileName, &TempBuffer[Start] as @StringT);
+
+         /* get next token (the \n) */
+         Ret := LexerGetByte();
+
+      else
+
+         /* new line: allocate it */
+         CurLine := UtilsStringAlloc(ReadCount);
+
+         /* copy TempBuffer into CurLine */
+         UtilsStringCopy(CurLine, &TempBuffer);
+
+         /* store line size */
+         CurLineSize := ReadCount;
+
+         /* reset offset */
+         CurLineOff := 1;
+
+         /* increase line no */
+         CurLineNo := CurLineNo+1;
+
+         /* return first byte */
+         Ret := CurLine@[0];
+
+      endif;
+
+   else
+
+      /* simply return next byte */
+      Ret := CurLine@[CurLineOff++];
+
+   endif;
+
+   /* done */
+   return Ret;
+
+end;
+
+/*****************************************************************************/
+/*                          LexerUngetByte                                   */
+/*****************************************************************************/
+
+def LexerUngetByte: func()
+begin
+
+   /* just set the unget flag */
+   HasUngetByte := TRUE;
+
+end;
+
+
+/*****************************************************************************/
+/*                          LexerIsOperator                                  */
+/*****************************************************************************/
+
+def LexerIsOperator: func(String: @StringT) returns BooleanT
+
+   /* local variables */
+   def I    : Int32T;
+   def Found: BooleanT;
+
+begin
+
+   /* initialize variables */
+   Found := FALSE;
+   I := 0;
+
+   /* look up in the array */
+   while Found == FALSE and Operators[I] != NULL do
+
+      /* compare */
+      if UtilsStringIsEqual(Operators[I], String) then
+         Found := TRUE;
+      endif;
+
+      /* next elemnt */
+      I++;
+
+   loop;
+
+   /* return the result */
+   return Found;
+
+end;
+
+/*****************************************************************************/
+/*                          LexerIsKeyword                                   */
+/*****************************************************************************/
+
+def LexerIsKeyword: func(String: @StringT) returns BooleanT
+
+   /* local variables */
+   def I    : Int32T;
+   def Found: BooleanT;
+
+begin
+
+   /* initialize variables */
+   Found := FALSE;
+   I := 0;
+
+   /* look up in the array */
+   while Found == FALSE and Keywords[I] != NULL do
+
+      /* compare */
+      if UtilsStringIsEqual(Keywords[I], String) then
+         Found := TRUE;
+      endif;
+
+    	/* next element */
+    	I++;
+
+   loop;
+
+   /* return result */
+   return Found;
+
+end;
+
+/*****************************************************************************/
+/*                          LexerIsDec                                       */
+/*****************************************************************************/
+
+def LexerIsDec: func(TestByte: ByteT) returns BooleanT
+begin
+
+   /* true if between 0 and 9 */
+   return TestByte >= '0' and TestByte <= '9';
+
+end;
+
+/*****************************************************************************/
+/*                          LexerIsOct                                       */
+/*****************************************************************************/
+
+def LexerIsOct: func(TestByte: ByteT) returns BooleanT
+begin
+
+   /* true if between 0 and 7 */
+   return TestByte >= '0' and TestByte <= '7';
+
+end;
+
+
+/*****************************************************************************/
+/*                          LexerIsHex                                       */
+/*****************************************************************************/
+
+def LexerIsHex: func(TestByte: ByteT) returns BooleanT
+begin
+
+   /* true if hexadecimal digit */
+   return (TestByte >= '0' and TestByte <= '9')or
+          (TestByte >= 'a' and TestByte <= 'f')or
+          (TestByte >= 'A' and TestByte <= 'F');
+
+end;
+
+
+/*****************************************************************************/
+/*                         LexerIsAlpha                                      */
+/*****************************************************************************/
+
+def LexerIsAlpha: func(TestByte: ByteT) returns BooleanT
+begin
+
+   /* true if alphabetic or underscore */
+   return (TestByte >= 'a' and TestByte <= 'z') or
+          (TestByte >= 'A' and TestByte <= 'Z') or
+          (TestByte == '_');
+
+end;
+
+
+/*****************************************************************************/
+/*                          LexerIsSpace                                     */
+/*****************************************************************************/
+
+def LexerIsSpace: func(TestByte: ByteT) returns BooleanT
+begin
+
+   /* true if space */
+   return TestByte == ' '  or
+          TestByte == '\n' or
+          TestByte == '\t' or
+          TestByte == '\r' or
+          TestByte == '\f' or
+          TestByte == '\v';
+
+end;
+
+/*****************************************************************************/
+/*                          LexerGetLexeme                                   */
+/*****************************************************************************/
+
+def LexerGetLexeme: func()
+
+   /* local variables */
+   def Position  : Int32T;
+   def Action    : Int32T;
+   def State     : Int32T;
+   def EscapeFlag: BooleanT;
+   def CurByte   : ByteT;
+
+begin
+
+   /* initialize flags */
+   Position   := 0;
+   Action     := 0;
+   EscapeFlag := 0;
+
+   /* get next character */
+   CurByte := LexerGetByte();
+
+   /* white space? */
+   while LexerIsSpace(CurByte) do
+      CurByte := LexerGetByte();
+   loop;
+
+   /* lexeme contains at least this first char */
+   CurLexemeValue[0] := CurByte;
+   CurLexemeValue[1] := 0;
+
+   /* start at a known CurByte */
+   State := STATE_START;
+
+   /* loop over input characters to read full lexeme */
+   while Action == 0 /* not done yet */ do
+
+      /* finite state automaton */
+      case State
+
+         /* first state: exploration */
+         when STATE_START:
+
+            /* set next state depending on first byte */
+            if CurByte == '\'' then
+               /* read character */
+               State := STATE_CHAR;
+            elsif CurByte == '\"' then
+               /* read string */
+               State := STATE_STRING;
+            elsif CurByte == '/' then
+               /* comment or division */
+               State := STATE_COMMENT;
+            elsif LexerIsOperator(&CurLexemeValue) then
+               /* operator */
+               State := STATE_OP;
+            elsif LexerIsDec(CurByte) then
+               /* numeric */
+               State := STATE_NUM;
+            elsif LexerIsAlpha(CurByte) then
+               /* alphabetic */
+               State := STATE_ALPHA;
+            elsif CurByte == EOF then
+               /* end of file */
+               State := STATE_EOF;
+            else
+               /* invalid token */
+               Action := 1;
+            endif;
+
+         /* \'[a-zA-Z_]\' acceptor */
+         when STATE_CHAR:
+
+            /* should end? */
+            if (Position == 2 and ! (CurLexemeValue[1] == '\\')) or Position == 3 then
+               if CurByte != '\'' then
+                   /* invalid token */
+                   LexerUngetByte();
+                   Action := 1;
+               else
+                   /* done */
+                   Action := 2;
+               endif;
+            endif;
+
+            /* end of file? */
+            if !Action and CurByte == EOF then
+               /* invalid token */
+               LexerUngetByte();
+               Action := 1;
+            endif;
+
+         /* string literal */
+         when STATE_STRING:
+
+            /* done? */
+            if CurByte == '\"' and !EscapeFlag then
+               /* done */
+               Action := 2;
+            elsif CurByte == EOF then
+               /* invalid token */
+               LexerUngetByte();
+               Action := 1;
+            elsif CurByte == '\n' then
+               /* invalid token */
+               LexerUngetByte();
+               Action := 1;
+            endif;
+
+            /* escape handling */
+            if EscapeFlag then
+               EscapeFlag := FALSE;
+            elsif CurByte == '\\' then
+               EscapeFlag := TRUE;
+            endif;
+
+         /* comment */
+         when STATE_COMMENT:
+
+            /* make decision based on position */
+            if Position == 1 then
+               /* time to decide */
+               if CurByte == '/' or CurByte == '*' then
+                  /* comment -- no special handling */
+               elsif CurByte == '=' then
+                  /* /:= operator */
+                  Action := 2;
+               else
+                  /* / operator */
+                  LexerUngetByte();
+                  Action := 2;
+               endif;
+            else
+               if CurLexemeValue[1] == '*' and
+                  CurByte           == '/' and
+                  CurLexemeValue[Position-1] == '*'
+               then
+                  /* closing of multi-line comment */
+                  Action := 2;
+               elsif
+                  CurLexemeValue[1] == '/' and
+                  CurByte           == '\n'
+               then
+                  /* closing of single-line comment */
+                  Action := 2;
+               elsif
+                  CurLexemeValue[1] == '*' and
+                  CurByte           == EOF
+               then
+                  /* invalid token */
+                  LexerUngetByte();
+                  Action := 1;
+               endif;
+            endif;
+
+         /* operator */
+         when STATE_OP:
+
+           /* append char and test */
+           CurLexemeValue[Position]   := CurByte;
+           CurLexemeValue[Position+1] := 0;
+           if !LexerIsOperator(&CurLexemeValue) then
+               /* done */
+               LexerUngetByte();
+               Action := 2;
+           endif;
+
+         /* alphabetical */
+         when STATE_ALPHA:
+
+            /* stop when we meet an invalid byte */
+            if !LexerIsAlpha(CurByte) and !LexerIsDec(CurByte) then
+               /* done */
+               LexerUngetByte();
+               Action := 2;
+            endif;
+
+         /* decimal integer literal */
+         when STATE_NUM:
+
+         /* handle integer */
+           if !LexerIsDec(CurByte) then
+               if (CurByte == 'o' or CurByte == 'O') and
+                  Position == 1 and
+                  CurLexemeValue[0] == '0'
+               then
+                  /* octal number */
+                  State := STATE_OCT;
+               elsif
+                  (CurByte == 'x' or CurByte == 'X') and
+                  Position == 1 and
+                  CurLexemeValue[0] == '0'
+               then
+                  /* hexadecimal number */
+                  State := STATE_HEX;
+               else
+                  /* done */
+                  LexerUngetByte();
+                  Action := 2;
+               endif;
+           endif;
+
+         /* octal */
+         when STATE_OCT:
+
+            /* stop when we meet invalid char */
+            if !LexerIsOct(CurByte) then
+               LexerUngetByte();
+               if Position > 2 then
+                   /* done */
+                   Action := 2;
+               else
+                   /* invalid token */
+                   LexerUngetByte();
+                   Action := 1;
+               endif;
+            endif;
+
+         /* hexadecimal */
+         when STATE_HEX:
+
+            /* stop when we meet invalid char */
+            if !LexerIsHex(CurByte) then
+               LexerUngetByte();
+               if Position > 2 then
+                   /* done */
+                   Action := 2;
+               else
+                   /* invalid token */
+                   LexerUngetByte();
+                   Action := 1;
+               endif;
+            endif;
+
+         /* end of file */
+         when STATE_EOF:
+            /* done */
+            Action := 2;
+
+      esac;
+
+      /* what's next? */
+      if Action == 0 then
+
+         /* store CurByte and move to next */
+         CurLexemeValue[Position++] := CurByte;
+         CurLexemeValue[Position] := 0;
+         CurByte := LexerGetByte();
+
+      elsif Action == 1 then
+
+         /* invalid token */
+         if Position then
+            CurLexemeValue[Position] := 0;
+         else
+            Position := 0;
+         endif;
+         CurLexemeType := LEX_INVALID;
+
+      else
+
+         /* append to token if string or char */
+         if State == STATE_CHAR or State == STATE_STRING then
+            /* append current CurByte */
+            CurLexemeValue[Position++] := CurByte;
+            CurLexemeValue[Position] := 0;
+         elsif State == STATE_COMMENT then
+            /* update lexeme value depending on CurByte */
+            if Position == 1 then
+               if CurByte == '=' then
+                  CurLexemeValue[Position++] := CurByte;
+               endif;
+            else
+               if CurByte == '/' then
+                  CurLexemeValue[Position++] := CurByte;
+               endif;
+            endif;
+            CurLexemeValue[Position] := 0;
+         elsif State == STATE_EOF then
+            /* put empty lexeme */
+            CurLexemeValue[0] := 0;
+         else
+            /* append 0 */
+            CurLexemeValue[Position] := 0;
+         endif;
+
+         /* determine type of lexeme */
+         case State
+            when STATE_CHAR:
+               CurLexemeType := LEX_CHAR_LITERAL;
+            when STATE_STRING:
+               CurLexemeType := LEX_STR_LITERAL;
+            when STATE_COMMENT:
+               if CurLexemeValue[1] == '*' or CurLexemeValue[1] == '/' then
+                  CurLexemeType := LEX_COMMENT;
+               else
+                  CurLexemeType := LEX_OP;
+               endif;
+            when STATE_OP:
+               CurLexemeType := LEX_OP;
+            when STATE_ALPHA:
+               if LexerIsKeyword(&CurLexemeValue) then
+                  CurLexemeType := LEX_KEYWORD;
+               else
+                  CurLexemeType := LEX_IDENTIFIER;
+               endif;
+            when STATE_NUM, STATE_OCT, STATE_HEX:
+               CurLexemeType := LEX_INT_LITERAL;
+            when STATE_EOF:
+               CurLexemeType := LEX_EOF;
+         esac;
+
+      endif;
+
+   loop;
+
+   //fprintf(stderr, "lexeme: %s\n", &CurLexemeValue);
+
+end;
+
+/*****************************************************************************/
+/*                              LexerPlay                                    */
+/*****************************************************************************/
+
+def LexerPlay: func()
+
+   def Done : BooleanT;
+
+begin
+
+   if !ErrorFlag then
+
+      /* loop over tokens */
+      Done := FALSE;
+
+      while !Done do
+
+         /* get lexeme */
+         LexerGetLexeme();
+
+         /* print token */
+         UtilsConsoleWriteStr(&CurLexemeValue);
+         UtilsConsoleWriteStr("\n");
+
+         /* done? */
+         if CurLexemeType == LEX_EOF then
+            Done := TRUE;
+         endif;
+
+      loop;
+
+   endif;
+
+end;

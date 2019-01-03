@@ -8,12 +8,14 @@ int main(int argc, char *argv[]) {
    char infile[1000];
    char outfile[1000];
    char command[1000];
+   char incdirs[1000];
    int  i;
    int  err;
 
    /* initialize local variables */
    infile[0]  = 0;
    outfile[0] = 0;
+   incdirs[0] = 0;
    command[0] = 0;
    i          = 1;
    err        = 0;
@@ -36,6 +38,18 @@ int main(int argc, char *argv[]) {
       ){
          sprintf(outfile, "%s", &argv[i][4]);
       }
+      else if(
+         argv[i][0] == 'i' &&
+         argv[i][1] == 'n' &&
+         argv[i][2] == 'c' &&
+         argv[i][3] == '='
+      ){
+         if (incdirs[0] == 0) {
+           sprintf(incdirs, "-I%s", &argv[i][4]);
+         } else {
+           sprintf(incdirs, "%s -I%s", incdirs, &argv[i][4]);
+         }
+      }
       else
       {
          printf("Unknown argument: %s, ignored.\n", argv[i]);
@@ -51,7 +65,7 @@ int main(int argc, char *argv[]) {
 
    /* now process the cmd */
    if (err == 0) {
-      sprintf(command, "gcc -E -x c -o %s %s", outfile, infile);
+      sprintf(command, "gcc -E -x c %s -o %s %s", incdirs, outfile, infile);
       err = system(command);
    };
 

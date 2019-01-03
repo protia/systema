@@ -7,7 +7,6 @@ dec system:  func(cmd: @[byte]) returns four;
 def main: func(argc: four, argv: @[@[byte]]) returns four
    def infile  : [1000 byte];
    def outfile : [1000 byte];
-   def incdirs : [1000 byte];
    def command : [1000 byte];
    def i       : four;
    def err     : four;
@@ -16,7 +15,6 @@ begin
    /* initialize local variables */
    infile[0]  := 0;
    outfile[0] := 0;
-   incdirs[0] := 0;
    command[0] := 0;
    i          := 1;
    err        := 0;
@@ -35,17 +33,6 @@ begin
          argv@[i]@[3] == '='
       then
          sprintf(&outfile, "%s", &argv@[i]@[4]);
-      elsif
-         argv@[i]@[0] == 'i' and
-         argv@[i]@[1] == 'n' and
-         argv@[i]@[2] == 'c' and
-         argv@[i]@[3] == '='
-      then
-         if incdirs[0] == 0 then
-            sprintf(&incdirs, "-I%s", &argv@[i]@[4]);
-         else
-            sprintf(&incdirs, "%s -I%s", &incdirs, &argv@[i]@[4]);
-         endif;
       else
          printf("Unknown argument: %s, ignored.\n", argv@[i]);
       endif;
@@ -60,7 +47,7 @@ begin
 
    /* now process the cmd */
    if err == 0 then
-      sprintf(&command, "gcc -E -x c -o %s %s", &outfile, &infile);
+      sprintf(&command, "cp %s %s", &infile, &outfile);
       err := system(&command);
    endif;
 
