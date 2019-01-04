@@ -7,6 +7,9 @@
 /* Lexer Module */
 #include "Lexer.inc"
 
+/* Parser Module */
+#include "Parser.inc"
+
 /*****************************************************************************/
 /*                               Main                                        */
 /*****************************************************************************/
@@ -48,15 +51,20 @@ begin
        endif;
    loop;
 
-   /* initialize components */
+   /* initialize helper components */
    ErrorInit();
+
+   /* initialize basic components */
    LexerInit(inFileName);
+   ParserInit();
 
    /* translate */
    LexerPlay();
+   ParserPlay();
 
    /* clean up things */
    LexerCleanup();
+   ParserCleanup();
 
    /* done */
    return ErrorFlag;

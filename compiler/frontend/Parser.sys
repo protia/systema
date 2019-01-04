@@ -1,0 +1,1691 @@
+/* Utility library */
+#include <Utils.inc>
+
+/* Error module */
+#include "Error.inc"
+
+/* Lexer module */
+#include "Lexer.inc"
+
+/* Parser module */
+#include "Parser.inc"
+
+/*****************************************************************************/
+/*                               Parser                                      */
+/*****************************************************************************/
+
+def ASTRoot:   @ASTFileNodeT;
+def CurLexeme: @LexemeT;
+
+/*****************************************************************************/
+/*                              ParserError                                  */
+/*****************************************************************************/
+
+def ParserError: func(Msg: @StringT)
+begin
+
+   /* error */
+   ErrorTrigger();
+   /* print header */
+   if CurLexeme != NULL then
+      ErrorHeader(CurLexeme@.ErrorData);
+   endif;
+   /* print error message */
+   ErrorBodyStr("Error: Expected ");
+   ErrorBodyStr(Msg);
+   ErrorBodyStr("\n");
+   /* print footer */
+   if CurLexeme != NULL then
+      ErrorFooter(CurLexeme@.ErrorData);
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserLex                                    */
+/*****************************************************************************/
+
+def ParserLex: func(LexType: Int32T) returns @LexemeT
+
+   /* returned lexeme */
+   def RetLex: @LexemeT;
+
+begin
+
+   /* check the lexeme */
+   if CurLexeme != NULL and
+      CurLexeme@.Type == LexType
+   then
+      /* return current lexeme */
+      RetLex := CurLexeme;
+      /* move to next lexeme */
+      CurLexeme := CurLexeme@.Next;
+   else
+      /* print error message */
+      case LexType
+         when LEX_KEYWORD:
+            ParserError("keyword");
+         when LEX_IDENTIFIER:
+            ParserError("identifier");
+         when LEX_CHAR_LITERAL:
+            ParserError("byte literal");
+         when LEX_STR_LITERAL:
+            ParserError("string literal");
+         when LEX_INT_LITERAL:
+            ParserError("integer literal");
+         when LEX_OP:
+            ParserError("operator");
+         when LEX_COMMENT:
+            ParserError("comment");
+         when LEX_EOF:
+            ParserError("end of file");
+         when LEX_INVALID:
+            ParserError("invalid token");
+         when others:
+            ParserError("unknown token");
+      esac;
+      /* return nothing */
+      RetLex := NULL;
+   endif;
+
+   /* return the lexeme value */
+   return RetLex;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserKeyword                                  */
+/*****************************************************************************/
+
+def ParserKeyword: func(Keyword: @StringT) returns @LexemeT
+
+   /* returned lexeme */
+   def RetLex: @LexemeT;
+
+begin
+
+   /* check the lexeme */
+   if CurLexeme != NULL and
+      CurLexeme@.Type == LEX_KEYWORD and
+      UtilsStringIsEqual(CurLexeme@.Value, Keyword)
+   then
+      /* return current lexeme */
+      RetLex := CurLexeme;
+      /* move to next lexeme */
+      CurLexeme := CurLexeme@.Next;
+   else
+      /* error */
+      ParserError(Keyword);
+      /* return nothing */
+      RetLex := NULL;
+   endif;
+
+   /* return the keyword */
+   return RetLex;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserOperator                                */
+/*****************************************************************************/
+
+def ParserOperator: func(Operator: @StringT) returns @LexemeT
+
+   /* returned lexeme */
+   def RetLex: @LexemeT;
+
+begin
+
+   /* check the lexeme */
+   if CurLexeme != NULL and
+      CurLexeme@.Type == LEX_OP and
+      UtilsStringIsEqual(CurLexeme@.Value, Operator)
+   then
+      /* return current lexeme */
+      RetLex := CurLexeme;
+      /* move to next lexeme */
+      CurLexeme := CurLexeme@.Next;
+   else
+      /* error */
+      ParserError(Operator);
+      /* return nothing */
+      RetLex := NULL;
+   endif;
+
+   /* return the keyword */
+   return RetLex;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserPar                                     */
+/*****************************************************************************/
+
+/* par: identifier 'as' type */
+
+def ParserPar: func() returns @ASTParNodeT
+
+   /* local variables */
+   def ParNode : @ASTParNodeT;
+
+begin
+
+   /* allocate param */
+   ParNode         := UtilsMemAlloc(sizeof(ASTParNodeT));
+   ParNode@.Type   := AST_PARAM;
+   ParNode@.Next   := NULL;
+
+   /* parse the identifier */
+   ParNode@.Lexeme := ParserLex(LEX_IDENTIFIER);
+
+   /* parse 'as' */
+   if UtilsStringIsEqual(CurLexeme@.Value, "as") then
+      ParserKeyword("as");
+   elsif UtilsStringIsEqual(CurLexeme@.Value, ":") then
+      ParserOperator(":");
+   else
+      ParserError(": or as");
+   endif;
+
+   /* parse the type */
+   ParNode@.TypeNode := ParserType();
+
+   /* done */
+   return ParNode;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserParList                                  */
+/*****************************************************************************/
+
+/* par_list: '(' [par_list (',' par_list)* [','[...]] ] ')' */
+
+def ParserParList: func() returns @ASTParListNodeT
+
+   /* local variables */
+   def ParList: @ASTParListNodeT;
+   def CurPar : @ASTParamNodeT;
+
+begin
+
+   /* allocate par list */
+   ParList := UtilsMemAlloc(sizeof(ASTParListNodeT));
+   ParList@.Type       := AST_PARAM_LIST;
+   ParList@.Lexeme     := NULL;
+   ParList@.FirstPar   := NULL;
+   ParList@.LastPar    := NULL;
+   ParList@.Arbitrary  := NULL;
+
+   /* parse function parameters */
+   ParserOperator("(");
+
+   /* loop over the parameters */
+   while CurLexeme@.Type == LEX_IDENTIFIER do
+
+      /* parse parameter */
+      CurPar := ParserPar();
+
+      /* add the parameter to the parent type */
+      if CurPar != NULL then
+         if ParList@.FirstPar == NULL then
+            ParList@.FirstPar      := CurPar;
+            ParList@.LastPar       := CurPar;
+         else
+            ParList@.LastPar@.Next := CurPar;
+            ParList@.LastPar       := CurPar;
+         endif;
+      endif;
+
+      /* parse the comma */
+      if !UtilsStringIsEqual(CurLexeme@.Value, ")") then
+         ParserOperator(",");
+      endif;
+
+   loop;
+
+   /* arbitrary? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "...") then
+      ParList@.Arbitrary := ParserOperator("...");
+   endif;
+
+   /* end of function parameters */
+   ParserOperator(")");
+
+   /* done, return par list */
+   return ParList;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserType                                   */
+/*****************************************************************************/
+
+/* type: basic_type | '@'type | '[' [expr] type ']' |
+ *       'func' par_list ['returns' type]   |
+ *       'record' par_list | identifier
+ */
+
+def ParserType: func() returns @ASTTypeNodeT
+
+   /* local variables */
+   def TypeNode: @ASTTypeNodeT;
+
+begin
+
+   /* allocate type node */
+   TypeNode             := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   TypeNode@.Type       := AST_TYPE;
+   TypeNode@.Lexeme     := NULL;
+   TypeNode@.SubType    := NULL;
+   TypeNode@.ArraySize  := NULL;
+   TypeNode@.ParList    := NULL;
+   TypeNode@.RetType    := NULL;
+
+   /* type specifier */
+   if UtilsStringIsEqual(CurLexeme@.Value, "void") then
+
+      /* void type */
+      TypeNode@.Lexeme := ParserKeyword("void");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "byte") then
+
+      /* byte type */
+      TypeNode@.Lexeme := ParserKeyword("byte");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "twin") then
+
+      /* void type */
+      TypeNode@.Lexeme := ParserKeyword("twin");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "four") then
+
+      /* four type */
+      TypeNode@.Lexeme := ParserKeyword("four");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "eigh") then
+
+      /* eigh type */
+      TypeNode@.Lexeme := ParserKeyword("eigh");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "func") then
+
+      /* func type */
+      TypeNode@.Lexeme := ParserKeyword("func");
+
+      /* parse parameter list */
+      TypeNode@.ParList := ParserParList();
+
+      /* parse "returns" */
+      if UtilsStringIsEqual(CurLexeme@.Value, "returns") then
+         ParserKeyword("returns");
+         TypeNode@.RetType := ParserType();
+      endif;
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "record") then
+
+      /* record type */
+      TypeNode@.Lexeme := ParserKeyword("record");
+
+      /* parse parameter list */
+      TypeNode@.ParList := ParserParList();
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "text") then
+
+      /* text type */
+      TypeNode@.Lexeme := ParserKeyword("text");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "[") then
+
+      /* array type */
+      TypeNode@.Lexeme := ParserOperator("[");
+
+      /* optional expr */
+      if !UtilsStringIsEqual(CurLexeme@.Value, "void")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "byte")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "twin")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "four")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "func")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "record") and
+         !UtilsStringIsEqual(CurLexeme@.Value, "text")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "[")      and
+         !UtilsStringIsEqual(CurLexeme@.Value, "@")      and
+         CurLexeme@.Type != LEX_IDENTIFIER
+      then
+         TypeNode@.ArraySize := ParserExpr();
+      endif;
+
+      /* mandatory subtype */
+      TypeNode@.SubType := ParserType();
+
+      /* end of array type */
+      TypeNode@.Lexeme := ParserOperator("]");
+
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "@") then
+
+      /* ptr type */
+      TypeNode@.Lexeme := ParserOperator("@");
+
+      /* subtype */
+      TypeNode@.SubType :=ParserType();
+
+   elsif CurLexeme@.Type == LEX_IDENTIFIER then
+
+      /* identifier */
+      TypeNode@.Lexeme := ParserLex(LEX_IDENTIFIER);
+
+   else
+
+      /* error */
+      ParserError("valid type");
+
+      /* no type found */
+      TypeNode := NULL;
+
+   endif;
+
+    /* done */
+    return TypeNode;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserFactor                                  */
+/*****************************************************************************/
+
+/* factor: parent | identifier | int_literal | str_literal | assembler */
+
+def ParserFactor: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode : @ASTExprNodeT;
+   def AsmNode  : @ASTAsmNodeT;
+   def IdNode   : @ASTIdNodeT;
+   def IntNode  : @ASTIntNodeT;
+   def CharNode : @ASTCharNodeT;
+   def StrNode  : @ASTStrNodeT;
+
+begin
+
+   /* parse according to the lexeme found */
+   if UtilsStringIsEqual(CurLexeme@.Value, "(") then
+      /* parentheses */
+      ParserOperator("(");
+      ExprNode := ParserExpr();
+      ParserOperator(")");
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "assembler") then
+      /* assembler */
+      AsmNode                := UtilsMemAlloc(sizeof(ASTAsmNodeT));
+      AsmNode@.Super.Type    := AST_ASSEMBLER;
+      AsmNode@.Super.Lexeme  := ParserKeyword("assembler");
+      AsmNode@.Super.Lexeme  := ParserLex(LEX_STR_LITERAL);
+      ExprNode               := AsmNode as @ASTExprNodeT;
+   elsif CurLexeme@.Type == LEX_IDENTIFIER then
+      /* identifier */
+      IdNode                 := UtilsMemAlloc(sizeof(ASTIdNodeT));
+      IdNode@.Super.Type     := AST_IDENTIFIER;
+      IdNode@.Super.Lexeme   := ParserLex(LEX_IDENTIFIER);
+      ExprNode               := IdNode as @ASTExprNodeT;
+   elsif CurLexeme@.Type == LEX_INT_LITERAL then
+      /* integer literal */
+      IntNode                := UtilsMemAlloc(sizeof(ASTIntNodeT));
+      IntNode@.Super.Type    := AST_INT_LITERAL;
+      IntNode@.Super.Lexeme  := ParserLex(LEX_INT_LITERAL);
+      ExprNode               := IntNode as @ASTExprNodeT;
+   elsif CurLexeme@.Type == LEX_CHAR_LITERAL then
+      /* char literal */
+      CharNode               := UtilsMemAlloc(sizeof(ASTCharNodeT));
+      CharNode@.Super.Type   := AST_CHAR_LITERAL;
+      CharNode@.Super.Lexeme := ParserLex(LEX_CHAR_LITERAL);
+      ExprNode               := CharNode as @ASTExprNodeT;
+   elsif CurLexeme@.Type == LEX_STR_LITERAL then
+      /* string literal */
+      StrNode                := UtilsMemAlloc(sizeof(ASTStrNodeT));
+      StrNode@.Super.Type    := AST_STR_LITERAL;
+      StrNode@.Super.Lexeme  := ParserLex(LEX_STR_LITERAL);
+      ExprNode               := StrNode as @ASTExprNodeT;
+   else
+      ExprNode := NULL;
+      ParserError("identifier, literal, or (");
+   endif;
+
+   /* done */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserUnaryPost                                  */
+/*****************************************************************************/
+
+/* factor: unary_post: factor post_op*  */
+
+def ParserUnaryPost: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode    : @ASTExprNodeT;
+   def PostIncNode : @ASTPostIncNodeT;
+   def PostDecNode : @ASTPostDecNodeT;
+   def DerefNode   : @ASTDerefNodeT;
+   def IndexNode   : @ASTIndexNodeT;
+   def MemberNode  : @ASTMemberNodeT;
+   def CallNode    : @ASTCallNodeT;
+   def CastNode    : @ASTCastNodeT;
+   def Done        : BooleanT;
+
+begin
+
+   /* parse factor */
+   ExprNode := ParserFactor();
+
+   /* loop over postfix operators */
+   Done := FALSE;
+   while !Done do
+      if UtilsStringIsEqual(CurLexeme@.Value, "++") then
+         /* post_increase */
+         PostIncNode               := UtilsMemAlloc(sizeof(ASTPostIncNodeT));
+         PostIncNode@.Super.Type   := AST_POST_INC;
+         PostIncNode@.Super.Lexeme := ParserOperator("++");
+         PostIncNode@.SubExpr      := ExprNode;
+         ExprNode                  := PostIncNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "--") then
+         /* post_decrease */
+         PostDecNode               := UtilsMemAlloc(sizeof(ASTPostDecNodeT));
+         PostDecNode@.Super.Type   := AST_POST_DEC;
+         PostDecNode@.Super.Lexeme := ParserOperator("--");
+         PostDecNode@.SubExpr      := ExprNode;
+         ExprNode                  := PostDecNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "@") then
+         /* dereference */
+         DerefNode                 := UtilsMemAlloc(sizeof(ASTDerefNodeT));
+         DerefNode@.Super.Type     := AST_DEREFERENCE;
+         DerefNode@.Super.Lexeme   := ParserOperator("@");
+         DerefNode@.SubExpr        := ExprNode;
+         ExprNode                  := DerefNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "[") then
+         /* index */
+         IndexNode                 := UtilsMemAlloc(sizeof(ASTIndexNodeT));
+         IndexNode@.Super.Type     := AST_INDEX;
+         IndexNode@.Super.Lexeme   := ParserOperator("[");
+         IndexNode@.ArrayExpr      := ExprNode;
+         IndexNode@.IndexExpr      := ParserExpr();
+         ParserOperator("]");
+         ExprNode                  := IndexNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, ".") then
+         /* member */
+         MemberNode                := UtilsMemAlloc(sizeof(ASTMemberNodeT));
+         MemberNode@.Super.Type    := AST_MEMBER;
+         MemberNode@.Super.Lexeme  := ParserOperator(".");
+         MemberNode@.RecordExpr    := ExprNode;
+         MemberNode@.MemberLex     := ParserLex(LEX_IDENTIFIER);
+         ExprNode                  := MemberNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "(") then
+         /* function call */
+         CallNode                  := UtilsMemAlloc(sizeof(ASTCallNodeT));
+         CallNode@.Super.Type      := AST_CALL;
+         CallNode@.Super.Lexeme    := ParserOperator("(");
+         CallNode@.FuncExpr        := ExprNode;
+         CallNode@.ParList         := ParserExprList() as @ASTExprListNodeT;
+         ParserOperator(")");
+         ExprNode                  := CallNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "as") then
+         /* type casting */
+         CastNode                  := UtilsMemAlloc(sizeof(ASTCastNodeT));
+         CastNode@.Super.Type      := AST_CAST;
+         CastNode@.Super.Lexeme    := ParserOperator("as");
+         CastNode@.SubExpr         := ExprNode;
+         CastNode@.NewType         := ParserType();
+         ExprNode                  := CastNode as @ASTExprNodeT;
+      else
+         /* no more operations */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserUnaryPre                                   */
+/*****************************************************************************/
+
+/* unary_pre: (pre_op unary_pre) | unary_post */
+
+def ParserUnaryPre: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def PreIncNode    : @ASTPreIncNodeT;
+   def PreDecNode    : @ASTPreDecNodeT;
+   def PositiveNode  : @ASTPositiveNodeT;
+   def NegativeNode  : @ASTNegativeNodeT;
+   def NotNode       : @ASTNotNodeT;
+   def BitComplNode  : @ASTBitComplNodeT;
+   def RefNode       : @ASTRefNodeT;
+   def SizeofNode    : @ASTSizeofNodeT;
+   def UnsignedNode  : @ASTUnsignedNodeT;
+
+begin
+
+   if UtilsStringIsEqual(CurLexeme@.Value, "++") then
+      /* pre_increase */
+      PreIncNode                 := UtilsMemAlloc(sizeof(ASTPreIncNodeT));
+      PreIncNode@.Super.Type     := AST_PRE_INC;
+      PreIncNode@.Super.Lexeme   := ParserOperator("++");
+      PreIncNode@.SubExpr        := ParserUnaryPre();
+      ExprNode                   := PreIncNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "--") then
+      /* pre_decrease */
+      PreDecNode                 := UtilsMemAlloc(sizeof(ASTPreDecNodeT));
+      PreDecNode@.Super.Type     := AST_PRE_DEC;
+      PreDecNode@.Super.Lexeme   := ParserOperator("--");
+      PreDecNode@.SubExpr        := ParserUnaryPre();
+      ExprNode                   := PreDecNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "+") then
+      /* positive */
+      PositiveNode               := UtilsMemAlloc(sizeof(ASTPositiveNodeT));
+      PositiveNode@.Super.Type   := AST_POSITIVE;
+      PositiveNode@.Super.Lexeme := ParserOperator("+");
+      PositiveNode@.SubExpr      := ParserUnaryPre();
+      ExprNode                   := PositiveNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "-") then
+      /* negative */
+      NegativeNode               := UtilsMemAlloc(sizeof(ASTNegativeNodeT));
+      NegativeNode@.Super.Type   := AST_NEGATIVE;
+      NegativeNode@.Super.Lexeme := ParserOperator("-");
+      NegativeNode@.SubExpr      := ParserUnaryPre();
+      ExprNode                   := NegativeNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "!") then
+      /* not */
+      NotNode                    := UtilsMemAlloc(sizeof(ASTNotNodeT));
+      NotNode@.Super.Type        := AST_NOT;
+      NotNode@.Super.Lexeme      := ParserOperator("!");
+      NotNode@.SubExpr           := ParserUnaryPre();
+      ExprNode                   := NotNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "~") then
+      /* Bitwise complement */
+      BitComplNode               := UtilsMemAlloc(sizeof(ASTBitComplNodeT));
+      BitComplNode@.Super.Type   := AST_BIT_COMPL;
+      BitComplNode@.Super.Lexeme := ParserOperator("~");
+      BitComplNode@.SubExpr      := ParserUnaryPre();
+      ExprNode                   := BitComplNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "&") then
+      /* Referencing */
+      RefNode                    := UtilsMemAlloc(sizeof(ASTRefNodeT));
+      RefNode@.Super.Type        := AST_REFERENCE;
+      RefNode@.Super.Lexeme      := ParserOperator("&");
+      RefNode@.SubExpr           := ParserUnaryPre();
+      ExprNode                   := RefNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "sizeof") then
+      /* sizeof */
+      SizeofNode                 := UtilsMemAlloc(sizeof(ASTSizeofNodeT));
+      SizeofNode@.Super.Type     := AST_SIZEOF;
+      SizeofNode@.Super.Lexeme   := ParserKeyword("sizeof");
+      SizeofNode@.SubExpr        := ParserUnaryPre();
+      ExprNode                   := SizeofNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "unsigned") then
+      /* unsigned */
+      UnsignedNode               := UtilsMemAlloc(sizeof(ASTUnsignedNodeT));
+      UnsignedNode@.Super.Type   := AST_SIZEOF;
+      UnsignedNode@.Super.Lexeme := ParserKeyword("unsigned");
+      UnsignedNode@.SubExpr      := ParserUnaryPre();
+      ExprNode                   := UnsignedNode as @ASTExprNodeT;
+   else
+      /* base case */
+      ExprNode                   := ParserUnaryPost();
+   endif;
+
+   /* done */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserMulDiv                                     */
+/*****************************************************************************/
+
+/* muldiv: unary_pre (('*'|'/'|'%') unary_pre)* */
+
+def ParserMulDiv: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def MulNode       : @ASTMulNodeT;
+   def DivNode       : @ASTDivNodeT;
+   def ModNode       : @ASTModNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the unary_pre expression */
+   ExprNode := ParserUnaryPre();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "*") then
+         /* mul operation */
+         MulNode               := UtilsMemAlloc(sizeof(ASTMulNodeT));
+         MulNode@.Super.Type   := AST_MUL;
+         MulNode@.Super.Lexeme := ParserOperator("*");
+         MulNode@.LeftExpr     := ExprNode;
+         MulNode@.RightExpr    := ParserUnaryPre();
+         ExprNode              := MulNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "/") then
+         /* div operation */
+         DivNode               := UtilsMemAlloc(sizeof(ASTDivNodeT));
+         DivNode@.Super.Type   := AST_DIV;
+         DivNode@.Super.Lexeme := ParserOperator("/");
+         DivNode@.LeftExpr     := ExprNode;
+         DivNode@.RightExpr    := ParserUnaryPre();
+         ExprNode              := DivNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "%") then
+         /* mod operation */
+         ModNode               := UtilsMemAlloc(sizeof(ASTModNodeT));
+         ModNode@.Super.Type   := AST_MOD;
+         ModNode@.Super.Lexeme := ParserOperator("%");
+         ModNode@.LeftExpr     := ExprNode;
+         ModNode@.RightExpr    := ParserUnaryPre();
+         ExprNode              := ModNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserAddSub                                     */
+/*****************************************************************************/
+
+/* addsub: muldiv (('+'|'-') muldiv)* */
+
+def ParserAddSub: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def AddNode       : @ASTAddNodeT;
+   def SubNode       : @ASTSubNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the muldiv expression */
+   ExprNode := ParserMulDiv();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "+") then
+         /* add operation */
+         AddNode               := UtilsMemAlloc(sizeof(ASTAddNodeT));
+         AddNode@.Super.Type   := AST_ADD;
+         AddNode@.Super.Lexeme := ParserOperator("+");
+         AddNode@.LeftExpr     := ExprNode;
+         AddNode@.RightExpr    := ParserMulDiv();
+         ExprNode              := AddNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "-") then
+         /* sub operation */
+         SubNode               := UtilsMemAlloc(sizeof(ASTSubNodeT));
+         SubNode@.Super.Type   := AST_SUB;
+         SubNode@.Super.Lexeme := ParserOperator("-");
+         SubNode@.LeftExpr     := ExprNode;
+         SubNode@.RightExpr    := ParserMulDiv();
+         ExprNode              := SubNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserShift                                     */
+/*****************************************************************************/
+
+/* shift: addsub (('<<'|'>>') addsub)* */
+
+def ParserShift: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def ShiftLNode    : @ASTShiftLeftNodeT;
+   def ShiftRNode    : @ASTShiftRightNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the addsub expression */
+   ExprNode := ParserAddSub();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "<<") then
+         /* shift left operation */
+         ShiftLNode               := UtilsMemAlloc(sizeof(ASTShiftLeftNodeT));
+         ShiftLNode@.Super.Type   := AST_SHIFT_LEFT;
+         ShiftLNode@.Super.Lexeme := ParserOperator("<<");
+         ShiftLNode@.LeftExpr     := ExprNode;
+         ShiftLNode@.RightExpr    := ParserAddSub();
+         ExprNode                 := ShiftLNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, ">>") then
+         /* shift right operation */
+         ShiftRNode               := UtilsMemAlloc(sizeof(ASTShiftRightNodeT));
+         ShiftRNode@.Super.Type   := AST_SHIFT_RIGHT;
+         ShiftRNode@.Super.Lexeme := ParserOperator(">>");
+         ShiftRNode@.LeftExpr     := ExprNode;
+         ShiftRNode@.RightExpr    := ParserAddSub();
+         ExprNode                 := ShiftRNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                           ParserRelation                                  */
+/*****************************************************************************/
+
+/* relation: shift (('>'|'>='|'<'|'<=') shift)* */
+
+def ParserRelation: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def GreatNode     : @ASTGreatNodeT;
+   def GreatEqNode   : @ASTGreatEqNodeT;
+   def LessNode      : @ASTLessNodeT;
+   def LessEqNode    : @ASTLessEqNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the shift expression */
+   ExprNode := ParserShift();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, ">") then
+         /* greater operation */
+         GreatNode                 := UtilsMemAlloc(sizeof(ASTGreatNodeT));
+         GreatNode@.Super.Type     := AST_GREATER;
+         GreatNode@.Super.Lexeme   := ParserOperator(">");
+         GreatNode@.LeftExpr       := ExprNode;
+         GreatNode@.RightExpr      := ParserShift();
+         ExprNode                  := GreatNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, ">=") then
+         /* greater-or-equal operation */
+         GreatEqNode               := UtilsMemAlloc(sizeof(ASTGreatEqNodeT));
+         GreatEqNode@.Super.Type   := AST_GREATER_EQUAL;
+         GreatEqNode@.Super.Lexeme := ParserOperator(">=");
+         GreatEqNode@.LeftExpr     := ExprNode;
+         GreatEqNode@.RightExpr    := ParserShift();
+         ExprNode                  := GreatEqNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "<") then
+         /* less operation */
+         LessNode                 := UtilsMemAlloc(sizeof(ASTLessNodeT));
+         LessNode@.Super.Type     := AST_LESS;
+         LessNode@.Super.Lexeme   := ParserOperator("<");
+         LessNode@.LeftExpr       := ExprNode;
+         LessNode@.RightExpr      := ParserShift();
+         ExprNode                 := LessNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "<=") then
+         /* less-or-equal operation */
+         LessEqNode               := UtilsMemAlloc(sizeof(ASTLessEqNodeT));
+         LessEqNode@.Super.Type   := AST_LESS_EQUAL;
+         LessEqNode@.Super.Lexeme := ParserOperator("<=");
+         LessEqNode@.LeftExpr     := ExprNode;
+         LessEqNode@.RightExpr    := ParserShift();
+         ExprNode                 := LessEqNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                           ParserEquality                                  */
+/*****************************************************************************/
+
+/* equality: relation (('=='|'!=') relation)* */
+
+def ParserEquality: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def EqualNode     : @ASTEqualNodeT;
+   def NotEqNode     : @ASTNotEqualNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the relation expression */
+   ExprNode := ParserRelation();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "==") then
+         /* equal operation */
+         EqualNode                 := UtilsMemAlloc(sizeof(ASTEqualNodeT));
+         EqualNode@.Super.Type     := AST_EQUAL;
+         EqualNode@.Super.Lexeme   := ParserOperator("==");
+         EqualNode@.LeftExpr       := ExprNode;
+         EqualNode@.RightExpr      := ParserRelation();
+         ExprNode                  := EqualNode as @ASTExprNodeT;
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "!=") then
+         /* not-equal operation */
+         NotEqNode                 := UtilsMemAlloc(sizeof(ASTNotEqualNodeT));
+         NotEqNode@.Super.Type     := AST_NOT_EQUAL;
+         NotEqNode@.Super.Lexeme   := ParserOperator("!=");
+         NotEqNode@.LeftExpr       := ExprNode;
+         NotEqNode@.RightExpr      := ParserRelation();
+         ExprNode                  := NotEqNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserBitwiseAnd                                 */
+/*****************************************************************************/
+
+/* bitwise_and: equality (('&') equality)* */
+
+def ParserBitwiseAnd: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def BitAndNode    : @ASTBitAndNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the equality expression */
+   ExprNode := ParserEquality();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "&") then
+         /* bitwise and operation */
+         BitAndNode                := UtilsMemAlloc(sizeof(ASTBitAndNodeT));
+         BitAndNode@.Super.Type    := AST_BIT_AND;
+         BitAndNode@.Super.Lexeme  := ParserOperator("&");
+         BitAndNode@.LeftExpr      := ExprNode;
+         BitAndNode@.RightExpr     := ParserEquality();
+         ExprNode                  := BitAndNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserBitwiseXor                                 */
+/*****************************************************************************/
+
+/* bitwise_xor: bitwise_and (('^') bitwise_and)* */
+
+def ParserBitwiseXor: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def BitXorNode    : @ASTBitXorNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the bitwise_and expression */
+   ExprNode := ParserBitwiseAnd();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "^") then
+         /* bitwise xor operation */
+         BitXorNode                := UtilsMemAlloc(sizeof(ASTBitXorNodeT));
+         BitXorNode@.Super.Type    := AST_BIT_XOR;
+         BitXorNode@.Super.Lexeme  := ParserOperator("^");
+         BitXorNode@.LeftExpr      := ExprNode;
+         BitXorNode@.RightExpr     := ParserBitwiseAnd();
+         ExprNode                  := BitXorNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserBitwiseOr                                  */
+/*****************************************************************************/
+
+/* bitwise_or: bitwise_xor (('|') bitwise_xor)* */
+
+def ParserBitwiseOr: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def BitOrNode     : @ASTBitOrNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the bitwise_xor expression */
+   ExprNode := ParserBitwiseXor();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "|") then
+         /* bitwise or operation */
+         BitOrNode                := UtilsMemAlloc(sizeof(ASTBitOrNodeT));
+         BitOrNode@.Super.Type    := AST_BIT_OR;
+         BitOrNode@.Super.Lexeme  := ParserOperator("|");
+         BitOrNode@.LeftExpr      := ExprNode;
+         BitOrNode@.RightExpr     := ParserBitwiseXor();
+         ExprNode                 := BitOrNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserLogicAnd                                   */
+/*****************************************************************************/
+
+/* logic_and: bitwise_or (('and') bitwise_or)* */
+
+def ParserLogicAnd: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def LogicAndNode  : @ASTLogicAndNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the bitwise_or expression */
+   ExprNode := ParserBitwiseOr();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "and") then
+         /* bitwise or operation */
+         LogicAndNode               := UtilsMemAlloc(sizeof(ASTLogicAndNodeT));
+         LogicAndNode@.Super.Type   := AST_LOGIC_AND;
+         LogicAndNode@.Super.Lexeme := ParserKeyword("and");
+         LogicAndNode@.LeftExpr     := ExprNode;
+         LogicAndNode@.RightExpr    := ParserBitwiseOr();
+         ExprNode                   := LogicAndNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserLogicOr                                    */
+/*****************************************************************************/
+
+/* logic_or: logic_and (('or') logic_and)* */
+
+def ParserLogicOr: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def LogicOrNode   : @ASTLogicOrNodeT;
+   def Done          : BooleanT;
+
+begin
+
+   /* first, we parse the logic_and expression */
+   ExprNode := ParserLogicAnd();
+
+   /* loop until we consume all the operators */
+   Done := FALSE;
+   while !Done do
+      /* check operator */
+      if UtilsStringIsEqual(CurLexeme@.Value, "or") then
+         /* bitwise or operation */
+         LogicOrNode               := UtilsMemAlloc(sizeof(ASTLogicOrNodeT));
+         LogicOrNode@.Super.Type   := AST_LOGIC_OR;
+         LogicOrNode@.Super.Lexeme := ParserKeyword("or");
+         LogicOrNode@.LeftExpr     := ExprNode;
+         LogicOrNode@.RightExpr    := ParserLogicAnd();
+         ExprNode                  := LogicOrNode as @ASTExprNodeT;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                        ParserConditional                                  */
+/*****************************************************************************/
+
+/* conditional: logic_or ((? expr : conditional) | lambda) */
+
+def ParserConditional: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def CondNode      : @ASTCondNodeT;
+
+begin
+
+   /* first, we parse the logic_or expression */
+   ExprNode := ParserLogicOr();
+
+   /* has ? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "?") then
+      /* ternary if operation */
+      CondNode               := UtilsMemAlloc(sizeof(ASTCondNodeT));
+      CondNode@.Super.Type   := AST_CONDITIONAL;
+      CondNode@.Super.Lexeme := ParserOperator("?");
+      CondNode@.CondExpr     := ParserLogicOr();
+      ParserOperator(":");
+      CondNode@.LeftExpr     := ParserExpr();
+      CondNode@.RightExpr    := ParserConditional();
+      ExprNode               := CondNode as @ASTExprNodeT;
+   endif;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                          ParserAssign                                     */
+/*****************************************************************************/
+
+/* assign: conditional ((:= assign) | lambda) */
+
+def ParserAssign: func() returns @ASTExprNodeT
+
+   /* local variables */
+   def ExprNode      : @ASTExprNodeT;
+   def AssignNode    : @ASTAssignNodeT;
+
+begin
+
+   /* first, we parse the conditional expression */
+   ExprNode := ParserConditional();
+
+   /* has :=? */
+   if UtilsStringIsEqual(CurLexeme@.Value, ":=") then
+      /* assignment operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator(":=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "+=") then
+      /* plus equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("+=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "-=") then
+      /* minus equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("-=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "*=") then
+      /* mul equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("*=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "/=") then
+      /* div equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("/=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "%=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("%=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "&=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("&=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "|=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("|=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "^=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("^=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "<<=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator("<<=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   elsif UtilsStringIsEqual(CurLexeme@.Value, ">>=") then
+      /* mod equal operation */
+      AssignNode               := UtilsMemAlloc(sizeof(ASTAssignNodeT));
+      AssignNode@.Super.Type   := AST_ASSIGN;
+      AssignNode@.Super.Lexeme := ParserOperator(">>=");
+      AssignNode@.LeftExpr     := ExprNode;
+      AssignNode@.RightExpr    := ParserAssign();
+      ExprNode                 := AssignNode as @ASTExprNodeT;
+   endif;
+
+   /* return expression */
+   return ExprNode;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserExpr                                   */
+/*****************************************************************************/
+
+/* expr: assign */
+
+def ParserExpr: func() returns @ASTExprNodeT
+begin
+
+   return ParserAssign();
+
+end;
+
+/*****************************************************************************/
+/*                             ParserExprList                                */
+/*****************************************************************************/
+
+/* expr_list: expr (, expr)* */
+
+def ParserExprList: func() returns @ASTStmtNodeT
+
+   /* local variables */
+   def ExprList: @ASTExprListNodeT;
+   def ExprNode: @ASTExprNodeT;
+   def Done    : BooleanT;
+
+begin
+
+   /* allocate expression list */
+   ExprList            := UtilsMemAlloc(sizeof(ASTStmtNodeT));
+   ExprList@.Type      := AST_EXPR_LIST;
+   ExprList@.Lexeme    := NULL;
+   ExprList@.FirstExpr := NULL;
+   ExprList@.LastExpr  := NULL;
+
+   /* loop over the expressions */
+   Done := FALSE;
+   while Done == FALSE do
+      /* parse expression */
+      ExprNode := ParserExpr();
+      /* add expression to the list */
+      if ExprNode != NULL then
+         ExprNode@.Next := NULL;
+         if ExprList@.FirstExpr == NULL then
+            ExprList@.FirstExpr      := ExprNode;
+            ExprList@.LastExpr       := ExprNode;
+         else
+            ExprList@.LastExpr@.Next := ExprNode;
+            ExprList@.LastExpr       := ExprNode;
+         endif;
+      endif;
+      /* done? */
+      if !UtilsStringIsEqual(CurLexeme@.Value, ",") then
+         Done := TRUE;
+      endif;
+   loop;
+
+   /* return the expression list */
+   return ExprList as @ASTStmtNodeT;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserStmtList                                */
+/*****************************************************************************/
+
+/* stmt_list: ([if_block | case_block | while_block |
+ *              for_block | expr_list] ;)*
+ */
+
+def ParserStmtList: func() returns @ASTStmtListNodeT
+
+   /* local variables */
+   def StmtList: @ASTStmtListNodeT;
+   def StmtNode: @ASTStmtNodeT;
+   def Done    : BooleanT;
+
+begin
+
+   /* allocate statement list */
+   StmtList            := UtilsMemAlloc(sizeof(ASTStmtListNodeT));
+   StmtList@.Type      := AST_STMT_LIST;
+   StmtList@.Lexeme    := NULL;
+   StmtList@.FirstStmt := NULL;
+   StmtList@.LastStmt  := NULL;
+
+   /* loop over the statements */
+   Done := FALSE;
+   while Done == FALSE do
+      /* done? */
+      if UtilsStringIsEqual(CurLexeme@.Value, "end")    or
+         UtilsStringIsEqual(CurLexeme@.Value, "elsif")  or
+         UtilsStringIsEqual(CurLexeme@.Value, "else")   or
+         UtilsStringIsEqual(CurLexeme@.Value, "endif")  or
+         UtilsStringIsEqual(CurLexeme@.Value, "when")   or
+         UtilsStringIsEqual(CurLexeme@.Value, "esac")   or
+         UtilsStringIsEqual(CurLexeme@.Value, "loop")   or
+         UtilsStringIsEqual(CurLexeme@.Value, "return") or
+         CurLexeme@.Type == LEX_EOF
+      then
+         /* done */
+         Done := TRUE;
+      else
+         /* parse block or expr list */
+         StmtNode := NULL;
+         if UtilsStringIsEqual(CurLexeme@.Value, "if") then
+            /* parse if */
+            //StmtNode:= ParserIf();
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "case") then
+            /* parse case */
+            //StmtNode:= ParserCase();
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "for") then
+            /* parse for */
+            //StmtNode:= ParserFor();
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "while") then
+            /* parse while */
+            //StmtNode:= ParserWhile();
+         else
+            /* parse expr list */
+            StmtNode := ParserExprList();
+         endif;
+         /* add node to linked list */
+         if StmtNode != NULL then
+            StmtNode@.Next := NULL;
+            if StmtList@.FirstStmt == NULL then
+               StmtList@.FirstStmt      := StmtNode;
+               StmtList@.LastStmt       := StmtNode;
+            else
+               StmtList@.LastStmt@.Next := StmtNode;
+               StmtList@.LastStmt       := StmtNode;
+            endif;
+         endif;
+         /* parse semicolon */
+         if ParserOperator(";") == NULL then
+            Done := TRUE;
+         endif;
+      endif;
+    loop;
+
+    /* return */
+    return StmtList;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserFunc                                   */
+/*****************************************************************************/
+
+/* func: dim_list 'begin' stmt_list ['return' expr ;] 'end' */
+
+def ParserFunc: func() returns @ASTFuncNodeT
+
+   /* local variables */
+   def FuncNode: @ASTFuncNodeT;
+
+begin
+
+   /* allocate func node */
+   FuncNode             := UtilsMemAlloc(sizeof(ASTFuncNodeT));
+   FuncNode@.Type       := AST_FUNC;
+   FuncNode@.Lexeme     := NULL;
+   FuncNode@.DimList    := NULL;
+   FuncNode@.StmtList   := NULL;
+   FuncNode@.RetExpr    := NULL;
+
+   /* parse dim list */
+   FuncNode@.DimList := ParserDimList();
+
+   /* parse begin */
+   ParserKeyword("begin");
+
+   /* statement list */
+   FuncNode@.StmtList := ParserStmtList();
+
+   /* parse end */
+   ParserKeyword("end");
+
+   /* done */
+   return FuncNode;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserDim                                      */
+/*****************************************************************************/
+
+/* dim_stmt: (dec|def|typ) [local] identifier
+ *           [as_type [in_loc] [:= expr | func]] ;
+ */
+
+def ParseDim: func() returns @ASTDimNodeT
+
+   def DimNode   : @ASTDimNodeT;
+
+begin
+
+   /* allocate dim node */
+   DimNode              := UtilsMemAlloc(sizeof(ASTDimNodeT));
+   DimNode@.Type        := AST_DIM;
+   DimNode@.Lexeme      := NULL;
+   DimNode@.Local       := NULL;
+   DimNode@.Identifier  := NULL;
+   DimNode@.TypeNode    := NULL;
+   DimNode@.Location    := NULL;
+   DimNode@.Initializer := NULL;
+   DimNode@.FuncNode    := NULL;
+
+   /* dim_keyword */
+   if UtilsStringIsEqual(CurLexeme@.Value, "dec") then
+      DimNode@.Lexeme := ParserKeyword("dec");
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "def") then
+      DimNode@.Lexeme := ParserKeyword("def");
+   elsif UtilsStringIsEqual(CurLexeme@.Value, "typ") then
+      DimNode@.Lexeme := ParserKeyword("typ");
+   else
+      ParserError("dec, def, or typ");
+   endif;
+
+   /* local? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "local") then
+      DimNode@.Local := ParserKeyword("local");
+   endif;
+
+   /* identifier */
+   DimNode@.Identifier := ParserLex(LEX_IDENTIFIER);
+
+   /* the next part is optional */
+   if UtilsStringIsEqual(CurLexeme@.Value, "as") or
+      UtilsStringIsEqual(CurLexeme@.Value, ":")
+   then
+      /* parse the type */
+      if UtilsStringIsEqual(CurLexeme@.Value, "as") then
+         ParserKeyword("as");
+      elsif UtilsStringIsEqual(CurLexeme@.Value, ":") then
+         ParserOperator(":");
+      endif;
+      DimNode@.TypeNode := ParserType();
+      /* in location? */
+      if UtilsStringIsEqual(CurLexeme@.Value, "in") then
+         /* parse location */
+         ParserKeyword("in");
+         if UtilsStringIsEqual(CurLexeme@.Value, "code") then
+            DimNode@.Location := ParserKeyword("code");
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "rodata") then
+            DimNode@.Location := ParserKeyword("rodata");
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "rwdata") then
+            DimNode@.Location := ParserKeyword("rwdata");
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "emdata") then
+            DimNode@.Location := ParserKeyword("emdata");
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "stack") then
+            DimNode@.Location := ParserKeyword("stack");
+         elsif UtilsStringIsEqual(CurLexeme@.Value, "register") then
+            DimNode@.Location := ParserKeyword("register");
+         endif;
+      endif;
+      /* initialization */
+      if UtilsStringIsEqual(CurLexeme@.Value, ":=") then
+         /* variable initialization */
+         // ParserExpression()
+      elsif UtilsStringIsEqual(CurLexeme@.Value, "begin") or
+            UtilsStringIsEqual(CurLexeme@.Value, "def") or
+            UtilsStringIsEqual(CurLexeme@.Value, "dec") or
+            UtilsStringIsEqual(CurLexeme@.Value, "typ") then
+         /* function */
+         ParserFunc();
+      endif;
+   endif;
+
+   /* now parse the semicolon; */
+   ParserOperator(";");
+
+   /* return the node */
+   return DimNode;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserDimList                                  */
+/*****************************************************************************/
+
+/* dim_list : (dim ;)* */
+
+def ParserDimList: func() returns @ASTDimListNodeT
+
+   /* local variables */
+   def DimList: @ASTDimListNodeT;
+   def DimNode: @ASTDimNodeT;
+   def Done   : BooleanT;
+
+begin
+
+   /* dim_list: dim_stmt dim_list | lambda */
+
+   /* allocate dim_list */
+   DimList            := UtilsMemAlloc(sizeof(ASTDimListNodeT));
+   DimList@.Type      := AST_DIM_LIST;
+   DimList@.Lexeme    := NULL;
+   DimList@.FirstDim  := NULL;
+   DimList@.LastDim   := NULL;
+
+   /* loop over the statements */
+   Done := FALSE;
+   while Done == FALSE do
+      /* done? */
+      if UtilsStringIsEqual(CurLexeme@.Value, "def") or
+         UtilsStringIsEqual(CurLexeme@.Value, "dec") or
+         UtilsStringIsEqual(CurLexeme@.Value, "typ")
+      then
+         /* parse dim_stmt */
+         DimNode:= ParseDim();
+         /* add dim stmt node to the list */
+         if DimNode != NULL then
+            DimNode@.Next := NULL;
+            if DimList@.FirstDim == NULL then
+               DimList@.FirstDim      := DimNode;
+               DimList@.LastDim       := DimNode;
+            else
+               DimList@.LastDim@.Next := DimNode;
+               DimList@.LastDim       := DimNode;
+            endif;
+         endif;
+      else
+         /* done */
+         Done := TRUE;
+      endif;
+    loop;
+
+    /* return */
+    return DimList;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserFile                                    */
+/*****************************************************************************/
+
+/* file : dim_list */
+
+def ParserFile: func() returns @ASTFileNodeT
+
+   /* local variables */
+   def FileNode: @ASTFileNodeT;
+   def DimNode : @ASTDimNodeT;
+   def Done    : BooleanT;
+
+begin
+
+   /* file: dim_list */
+
+   /* allocate node */
+   FileNode           := UtilsMemAlloc(sizeof(ASTFileNodeT));
+   FileNode@.Type     := AST_FILE;
+   FileNode@.Lexeme   := NULL;
+   FileNode@.DimList  := NULL;
+
+   /* parse a dim list */
+   FileNode@.DimList  := ParserDimList();
+
+   /* parse EOF */
+   ParserLex(LEX_EOF);
+
+   /* return */
+   return FileNode;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserInit                                    */
+/*****************************************************************************/
+
+def ParserInit: func()
+begin
+
+   /* initialize ASTRoot */
+   ASTRoot := NULL;
+
+   /* set CurLexeme to null */
+   CurLexeme := NULL;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserCleanup                                  */
+/*****************************************************************************/
+
+def ParserCleanup: func()
+begin
+
+   /* nothing to do */
+
+end;
+
+/*****************************************************************************/
+/*                            ParserPlay                                     */
+/*****************************************************************************/
+
+def ParserPlay: func()
+begin
+
+   /* parse the file */
+   if ErrorFlag == FALSE then
+      CurLexeme := FirstLexeme;
+      ASTRoot   := ParserFile();
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                            ParserDebug                                    */
+/*****************************************************************************/
+
+def ParserDebug: func()
+begin
+
+   /* debug nodes */
+
+end;

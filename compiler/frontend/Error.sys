@@ -48,17 +48,19 @@ def ErrorHeader: func(ErrorData: @ErrorDataT)
 begin
 
    /* print error header */
-   UtilsConsoleWriteStr("Front-end Error: ");
+   UtilsConsoleWriteStr("Front-end Error:\n");
+   UtilsConsoleWriteStr("----------------\n");
 
    /* if ErrorData is available, print more information */
    if ErrorData != NULL then
 
       /* print file name */
-      UtilsConsoleWriteStr("In ");
+      UtilsConsoleWriteStr("File: ");
       UtilsConsoleWriteStr(ErrorData@.FileName);
-      UtilsConsoleWriteStr(":");
+      UtilsConsoleWriteStr("\n");
 
       /* print line number */
+      UtilsConsoleWriteStr("Line: ");
       UtilsConsoleWriteInt(ErrorData@.LineNo);
       UtilsConsoleWriteStr("\n");
 
@@ -113,8 +115,10 @@ begin
       endif;
 
       /* print spaces */
-      for I from 0 to ErrorData@.LineOff do
+      I := 0;
+      while I < ErrorData@.LineOff do
          UtilsConsoleWriteStr(" ");
+         I++;
       loop;
 
       /* now print the fancy ^ */

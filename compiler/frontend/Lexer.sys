@@ -29,172 +29,16 @@ def CurLexemeValue: [4096 byte];
 def CurLexemeSize : Int32T;
 def CurLexemeType : Int32T;
 
+/* linked list of lexemes */
+def FirstLexeme   : @LexemeT;
+def LastLexeme    : @LexemeT;
+
 /* Used to undo the effect of GetByte() */
 def HasUngetByte  : BooleanT;
 
 /* Language lexemes */
 def Operators     : [200 @StringT];
 def Keywords      : [200 @StringT];
-
-/*****************************************************************************/
-/*                             LexerInit                                     */
-/*****************************************************************************/
-
-def LexerInit: func(FileName: @StringT)
-
-   /* local variables */
-   def I     : four;
-   def Error : four;
-
-begin
-
-   /* initialize information about current line */
-   CurFileName  := FileName;
-   CurLine      := "";
-   CurLineSize  := 0;
-   CurLineNo    := 0;
-   CurLineOff   := 0;
-
-   /* no byte is ungot in initial CurByte */
-   HasUngetByte := 0;
-
-   /* initialize Operators */
-   I := 0;
-   Operators[I++] := "[";
-   Operators[I++] := "]";
-   Operators[I++] := "(";
-   Operators[I++] := ")";
-   Operators[I++] := "{";
-   Operators[I++] := "}";
-   Operators[I++] := ";";
-   Operators[I++] := ".";
-   Operators[I++] := ",";
-   Operators[I++] := "..";
-   Operators[I++] := "...";
-   Operators[I++] := "++";
-   Operators[I++] := "--";
-   Operators[I++] := "&";
-   Operators[I++] := "@";
-   Operators[I++] := "*";
-   Operators[I++] := "+";
-   Operators[I++] := "-";
-   Operators[I++] := "~";
-   Operators[I++] := "!";
-   Operators[I++] := "/";
-   Operators[I++] := "%";
-   Operators[I++] := "<<";
-   Operators[I++] := ">>";
-   Operators[I++] := "<";
-   Operators[I++] := ">";
-   Operators[I++] := "<=";
-   Operators[I++] := ">=";
-   Operators[I++] := "==";
-   Operators[I++] := "!=";
-   Operators[I++] := "^";
-   Operators[I++] := "|";
-   Operators[I++] := "?";
-   Operators[I++] := ":";
-   Operators[I++] := ":=";
-   Operators[I++] := "*=";
-   Operators[I++] := "/=";
-   Operators[I++] := "%=";
-   Operators[I++] := "+=";
-   Operators[I++] := "-=";
-   Operators[I++] := "<<=";
-   Operators[I++] := ">>=";
-   Operators[I++] := "&=";
-   Operators[I++] := "^=";
-   Operators[I++] := "|=";
-   Operators[I++] := "=";
-   Operators[I++] := NULL;
-
-   /* initialize Keywords */
-   I := 0;
-   Keywords[I++] := "def";
-   Keywords[I++] := "dec";
-   Keywords[I++] := "typ";
-   Keywords[I++] := "sub";
-   Keywords[I++] := "local";
-   Keywords[I++] := "as";
-   Keywords[I++] := "in";
-   Keywords[I++] := "code";
-   Keywords[I++] := "rodata";
-   Keywords[I++] := "data";
-   Keywords[I++] := "bss";
-   Keywords[I++] := "stack";
-   Keywords[I++] := "register";
-   Keywords[I++] := "byte";
-   Keywords[I++] := "twin";
-   Keywords[I++] := "four";
-   Keywords[I++] := "eigh";
-   Keywords[I++] := "func";
-   Keywords[I++] := "text";
-   Keywords[I++] := "record";
-   Keywords[I++] := "returns";
-   Keywords[I++] := "begin";
-   Keywords[I++] := "assembly";
-   Keywords[I++] := "sizeof";
-   Keywords[I++] := "typeof";
-   Keywords[I++] := "if";
-   Keywords[I++] := "unsigned";
-   Keywords[I++] := "and";
-   Keywords[I++] := "or";
-   Keywords[I++] := "then";
-   Keywords[I++] := "elsif";
-   Keywords[I++] := "else";
-   Keywords[I++] := "endif";
-   Keywords[I++] := "case";
-   Keywords[I++] := "when";
-   Keywords[I++] := "others";
-   Keywords[I++] := "esac";
-   Keywords[I++] := "for";
-   Keywords[I++] := "from";
-   Keywords[I++] := "down";
-   Keywords[I++] := "to";
-   Keywords[I++] := "step";
-   Keywords[I++] := "do";
-   Keywords[I++] := "while";
-   Keywords[I++] := "loop";
-   Keywords[I++] := "return";
-   Keywords[I++] := "end";
-   Keywords[I++] := NULL;
-
-   /* File specified? */
-   if FileName == NULL then
-      FileDesc  := NULL;
-      ErrorTrigger();
-      ErrorHeader(NULL);
-      ErrorBodyStr("No input file specified.");
-      ErrorFooter(NULL);
-   else
-      /* try to open the file */
-      FileDesc  := UtilsFileOpen(FileName, "r");
-      /* print error if failed */
-      if FileDesc == NULL then
-         ErrorTrigger();
-         ErrorHeader(NULL);
-         ErrorBodyStr("Can't open ");
-         ErrorBodyStr(FileName);
-         ErrorBodyStr(" for reading.");
-         ErrorFooter(NULL);
-      endif;
-   endif;
-
-end;
-
-/*****************************************************************************/
-/*                            LexerCleanup                                   */
-/*****************************************************************************/
-
-def LexerCleanup: func()
-begin
-
-   /* close the open file */
-   if FileDesc != NULL then
-      UtilsFileClose(FileDesc);
-   endif;
-
-end;
 
 /*****************************************************************************/
 /*                           LexerGetByte                                    */
@@ -237,7 +81,7 @@ begin
       elsif TempBuffer[0] == '#' then
 
          /* parse hash line */
-         CurLineNo := UtilsStringToInt(&TempBuffer[1] as @StringT);
+         CurLineNo := UtilsStringToInt(&TempBuffer[1] as @StringT)-1;
 
          /* loop until we find a '"' */
          I := 0;
@@ -458,7 +302,7 @@ end;
 /*                          LexerGetLexeme                                   */
 /*****************************************************************************/
 
-def LexerGetLexeme: func()
+def LexerGetLexeme: func() returns @LexemeT
 
    /* local variables */
    def Position  : Int32T;
@@ -466,6 +310,8 @@ def LexerGetLexeme: func()
    def State     : Int32T;
    def EscapeFlag: BooleanT;
    def CurByte   : ByteT;
+   def RetLexeme : @LexemeT;
+   def RetError  : @ErrorDataT;
 
 begin
 
@@ -473,6 +319,7 @@ begin
    Position   := 0;
    Action     := 0;
    EscapeFlag := 0;
+   RetLexeme  := NULL;
 
    /* get next character */
    CurByte := LexerGetByte();
@@ -485,6 +332,14 @@ begin
    /* lexeme contains at least this first char */
    CurLexemeValue[0] := CurByte;
    CurLexemeValue[1] := 0;
+
+   /* Create ErrorDataT from here */
+   RetError := UtilsMemAlloc(sizeof(ErrorDataT));
+   RetError@.FileName := CurFileName;
+   RetError@.Line     := CurLine;
+   RetError@.LineSize := CurLineSize;
+   RetError@.LineNo   := CurLineNo;
+   RetError@.LineOff  := CurLineOff-1;
 
    /* start at a known CurByte */
    State := STATE_START;
@@ -771,9 +626,187 @@ begin
 
    loop;
 
-   //fprintf(stderr, "lexeme: %s\n", &CurLexemeValue);
+   /* allocate Ret Lexeme */
+   RetLexeme            := UtilsMemAlloc(sizeof(LexemeT));
+   RetLexeme@.Value     := UtilsStringAlloc(UtilsStringLength(&CurLexemeValue));
+   RetLexeme@.ErrorData := UtilsMemAlloc(sizeof(ErrorDataT)) as @ErrorDataT;
+
+   /* initialize RetLexeme members */
+   UtilsStringCopy(RetLexeme@.Value, &CurLexemeValue);
+   RetLexeme@.Size      := UtilsStringLength(&CurLexemeValue);
+   RetLexeme@.Type      := CurLexemeType;
+   RetLexeme@.ErrorData := RetError;
+   RetLexeme@.Next      := NULL;
+
+   /* return the created lexeme */
+   return RetLexeme;
 
 end;
+
+/*****************************************************************************/
+/*                             LexerInit                                     */
+/*****************************************************************************/
+
+def LexerInit: func(FileName: @StringT)
+
+   /* local variables */
+   def I     : four;
+   def Error : four;
+
+begin
+
+   /* initialize information about current line */
+   CurFileName  := FileName;
+   CurLine      := "";
+   CurLineSize  := 0;
+   CurLineNo    := 0;
+   CurLineOff   := 0;
+
+   /* no byte is ungot in initial CurByte */
+   HasUngetByte := 0;
+
+   /* initialize lexeme linked list */
+   FirstLexeme  := NULL;
+   LastLexeme   := NULL;
+
+   /* initialize Operators */
+   I := 0;
+   Operators[I++] := "[";
+   Operators[I++] := "]";
+   Operators[I++] := "(";
+   Operators[I++] := ")";
+   Operators[I++] := "{";
+   Operators[I++] := "}";
+   Operators[I++] := ";";
+   Operators[I++] := ".";
+   Operators[I++] := ",";
+   Operators[I++] := "..";
+   Operators[I++] := "...";
+   Operators[I++] := "++";
+   Operators[I++] := "--";
+   Operators[I++] := "&";
+   Operators[I++] := "@";
+   Operators[I++] := "*";
+   Operators[I++] := "+";
+   Operators[I++] := "-";
+   Operators[I++] := "~";
+   Operators[I++] := "!";
+   Operators[I++] := "/";
+   Operators[I++] := "%";
+   Operators[I++] := "<<";
+   Operators[I++] := ">>";
+   Operators[I++] := "<";
+   Operators[I++] := ">";
+   Operators[I++] := "<=";
+   Operators[I++] := ">=";
+   Operators[I++] := "==";
+   Operators[I++] := "!=";
+   Operators[I++] := "^";
+   Operators[I++] := "|";
+   Operators[I++] := "?";
+   Operators[I++] := ":";
+   Operators[I++] := ":=";
+   Operators[I++] := "*=";
+   Operators[I++] := "/=";
+   Operators[I++] := "%=";
+   Operators[I++] := "+=";
+   Operators[I++] := "-=";
+   Operators[I++] := "<<=";
+   Operators[I++] := ">>=";
+   Operators[I++] := "&=";
+   Operators[I++] := "^=";
+   Operators[I++] := "|=";
+   Operators[I++] := "=";
+   Operators[I++] := NULL;
+
+   /* initialize Keywords */
+   I := 0;
+   Keywords[I++] := "def";
+   Keywords[I++] := "dec";
+   Keywords[I++] := "typ";
+   Keywords[I++] := "sub";
+   Keywords[I++] := "local";
+   Keywords[I++] := "as";
+   Keywords[I++] := "in";
+   Keywords[I++] := "code";
+   Keywords[I++] := "rodata";
+   Keywords[I++] := "data";
+   Keywords[I++] := "bss";
+   Keywords[I++] := "stack";
+   Keywords[I++] := "register";
+   Keywords[I++] := "byte";
+   Keywords[I++] := "twin";
+   Keywords[I++] := "four";
+   Keywords[I++] := "eigh";
+   Keywords[I++] := "func";
+   Keywords[I++] := "text";
+   Keywords[I++] := "record";
+   Keywords[I++] := "returns";
+   Keywords[I++] := "begin";
+   Keywords[I++] := "assembler";
+   Keywords[I++] := "sizeof";
+   Keywords[I++] := "typeof";
+   Keywords[I++] := "if";
+   Keywords[I++] := "unsigned";
+   Keywords[I++] := "and";
+   Keywords[I++] := "or";
+   Keywords[I++] := "then";
+   Keywords[I++] := "elsif";
+   Keywords[I++] := "else";
+   Keywords[I++] := "endif";
+   Keywords[I++] := "case";
+   Keywords[I++] := "when";
+   Keywords[I++] := "others";
+   Keywords[I++] := "esac";
+   Keywords[I++] := "for";
+   Keywords[I++] := "from";
+   Keywords[I++] := "down";
+   Keywords[I++] := "to";
+   Keywords[I++] := "step";
+   Keywords[I++] := "do";
+   Keywords[I++] := "while";
+   Keywords[I++] := "loop";
+   Keywords[I++] := "return";
+   Keywords[I++] := "end";
+   Keywords[I++] := NULL;
+
+   /* File specified? */
+   if FileName == NULL then
+      FileDesc  := NULL;
+      ErrorTrigger();
+      ErrorHeader(NULL);
+      ErrorBodyStr("No input file specified.");
+      ErrorFooter(NULL);
+   else
+      /* try to open the file */
+      FileDesc  := UtilsFileOpen(FileName, "r");
+      /* print error if failed */
+      if FileDesc == NULL then
+         ErrorTrigger();
+         ErrorHeader(NULL);
+         ErrorBodyStr("Can't open ");
+         ErrorBodyStr(FileName);
+         ErrorBodyStr(" for reading.");
+         ErrorFooter(NULL);
+      endif;
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                            LexerCleanup                                   */
+/*****************************************************************************/
+
+def LexerCleanup: func()
+begin
+
+   /* close the open file */
+   if FileDesc != NULL then
+      UtilsFileClose(FileDesc);
+   endif;
+
+end;
+
 
 /*****************************************************************************/
 /*                              LexerPlay                                    */
@@ -781,31 +814,96 @@ end;
 
 def LexerPlay: func()
 
-   def Done : BooleanT;
+   def Done      : BooleanT;
+   def CurLexeme : @LexemeT;
 
 begin
 
-   if !ErrorFlag then
+   if ErrorFlag == FALSE then
 
       /* loop over tokens */
       Done := FALSE;
 
-      while !Done do
+      while Done == FALSE do
 
          /* get lexeme */
-         LexerGetLexeme();
+         CurLexeme := LexerGetLexeme();
 
-         /* print token */
-         UtilsConsoleWriteStr(&CurLexemeValue);
-         UtilsConsoleWriteStr("\n");
+         /* add to linked list */
+         if FirstLexeme == NULL then
+            FirstLexeme := CurLexeme;
+            LastLexeme  := CurLexeme;
+         else
+            LastLexeme@.Next := CurLexeme;
+            LastLexeme := CurLexeme;
+         endif;
 
          /* done? */
-         if CurLexemeType == LEX_EOF then
+         if CurLexeme@.Type == LEX_EOF then
             Done := TRUE;
          endif;
 
       loop;
 
    endif;
+
+end;
+
+/*****************************************************************************/
+/*                              LexerDebug                                   */
+/*****************************************************************************/
+
+def LexerDebug: func()
+
+   /* local variables */
+   def CurLexeme : @LexemeT;
+   def Size      : Int32T;
+   def I         : Int32T;
+
+begin
+
+   /* loop over tokens and print them */
+   CurLexeme := FirstLexeme;
+   while CurLexeme != NULL do
+
+      /* print file name and line no */
+      UtilsConsoleWriteStr("\n");
+      UtilsConsoleWriteStr("File: ");
+      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.FileName);
+      UtilsConsoleWriteStr("\nLine: ");
+      UtilsConsoleWriteInt(CurLexeme@.ErrorData@.LineNo);
+      UtilsConsoleWriteStr("\n");
+
+      /* print lexeme */
+      UtilsConsoleWriteStr("Lexeme: ");
+      UtilsConsoleWriteStr(CurLexeme@.Value);
+      UtilsConsoleWriteStr("\n");
+
+      /* print the line itself */
+      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.Line);
+
+      /* line doesn't contain \n? */
+      Size := CurLexeme@.ErrorData@.LineSize;
+      if CurLexeme@.ErrorData@.Line@[Size-1] != '\n' then
+         UtilsConsoleWriteStr("\n");
+      endif;
+
+      /* print spaces */
+      I := 0;
+      while I < CurLexeme@.ErrorData@.LineOff do
+         UtilsConsoleWriteStr(" ");
+         I++;
+      loop;
+
+      /* now print the fancy ^ */
+      UtilsConsoleWriteStr("^");
+
+      /* print trailing \n */
+      UtilsConsoleWriteStr("\n");
+
+      /* go to next lexeme */
+      CurLexeme := CurLexeme@.Next;
+
+   loop;
 
 end;

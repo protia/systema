@@ -30,8 +30,13 @@ dec strcat  : func(str1: @[byte], str2: @[byte]) returns @[byte];
 dec strcmp  : func(str1: @[byte], str2: @[byte]) returns four;
 dec strtol  : func(str: @[byte], ptr: @@[byte], base: four) returns four;
 
-/* string routines */
+/* memory */
+def UtilsMemAlloc: func(Size: Int32T) returns @void
+begin
+   return malloc(Size) as @void;
+end;
 
+/* string routines */
 def UtilsStringAlloc     : func(Size:    Int32T) returns @StringT
 begin
    return malloc(Size+1) as @StringT;

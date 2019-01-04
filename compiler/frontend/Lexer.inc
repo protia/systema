@@ -4,6 +4,9 @@
 /* Utility library */
 #include <Utils.inc>
 
+/* Error module */
+#include "Error.inc"
+
 /* Lexeme types */
 #define LEX_KEYWORD       0
 #define LEX_IDENTIFIER    1
@@ -33,14 +36,21 @@
 /* Lexeme Type */
 typ LexemeT: record
 (
-    Value : @StringT,
-    Size  : Int32T,
-    Type  : Int32T
+   Next     : @LexemeT,
+   Value    : @StringT,
+   Size     : Int32T,
+   Type     : Int32T,
+   ErrorData: @ErrorDataT
 );
+
+/* Lexeme linked list */
+dec FirstLexeme: @LexemeT;
+dec LastLexeme:  @LexemeT;
 
 /* Interface functions */
 dec LexerInit   : func(FileName: @StringT);
 dec LexerCleanup: func(                  );
 dec LexerPlay   : func(                  );
+dec LexerDebug  : func(                  );
 
 #endif /* __LEXER_INC */

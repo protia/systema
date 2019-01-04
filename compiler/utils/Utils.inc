@@ -21,6 +21,9 @@ typ Int64T   : eigh;
 typ BooleanT : byte;
 typ StringT  : [byte];
 
+/* memory */
+dec UtilsMemAlloc        : func(Size:       Int32T) returns @void;
+
 /* string routines */
 dec UtilsStringAlloc     : func(Size:       Int32T                       ) returns @StringT;
 dec UtilsStringLength    : func(String:     @StringT                     ) returns Int32T;
