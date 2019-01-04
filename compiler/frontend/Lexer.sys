@@ -1,3 +1,7 @@
+/*****************************************************************************/
+/*                           Lexical Analysis                                */
+/*****************************************************************************/
+
 /* Utility library */
 #include <Utils.inc>
 
@@ -8,7 +12,7 @@
 #include "Lexer.inc"
 
 /*****************************************************************************/
-/*                               Lexer                                       */
+/*                               Globals                                     */
 /*****************************************************************************/
 
 /* Temporary buffer for string operations */
@@ -644,10 +648,69 @@ begin
 end;
 
 /*****************************************************************************/
+/*                              LexerDebug                                   */
+/*****************************************************************************/
+
+def LexerDebug: func()
+
+   /* local variables */
+   def CurLexeme : @LexemeT;
+   def Size      : Int32T;
+   def I         : Int32T;
+
+begin
+
+   /* loop over tokens and print them */
+   CurLexeme := FirstLexeme;
+   while CurLexeme != NULL do
+
+      /* print file name and line no */
+      UtilsConsoleWriteStr("\n");
+      UtilsConsoleWriteStr("File: ");
+      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.FileName);
+      UtilsConsoleWriteStr("\nLine: ");
+      UtilsConsoleWriteInt(CurLexeme@.ErrorData@.LineNo);
+      UtilsConsoleWriteStr("\n");
+
+      /* print lexeme */
+      UtilsConsoleWriteStr("Lexeme: ");
+      UtilsConsoleWriteStr(CurLexeme@.Value);
+      UtilsConsoleWriteStr("\n");
+
+      /* print the line itself */
+      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.Line);
+
+      /* line doesn't contain \n? */
+      Size := CurLexeme@.ErrorData@.LineSize;
+      if CurLexeme@.ErrorData@.Line@[Size-1] != '\n' then
+         UtilsConsoleWriteStr("\n");
+      endif;
+
+      /* print spaces */
+      I := 0;
+      while I < CurLexeme@.ErrorData@.LineOff do
+         UtilsConsoleWriteStr(" ");
+         I++;
+      loop;
+
+      /* now print the fancy ^ */
+      UtilsConsoleWriteStr("^");
+
+      /* print trailing \n */
+      UtilsConsoleWriteStr("\n");
+
+      /* go to next lexeme */
+      CurLexeme := CurLexeme@.Next;
+
+   loop;
+
+end;
+
+/*****************************************************************************/
 /*                             LexerInit                                     */
 /*****************************************************************************/
 
-def LexerInit: func(FileName: @StringT)
+def LexerInit: func()
 
    /* local variables */
    def I     : four;
@@ -656,7 +719,7 @@ def LexerInit: func(FileName: @StringT)
 begin
 
    /* initialize information about current line */
-   CurFileName  := FileName;
+   CurFileName  := UtilsEnvironGet("in");
    CurLine      := "";
    CurLineSize  := 0;
    CurLineNo    := 0;
@@ -772,7 +835,7 @@ begin
    Keywords[I++] := NULL;
 
    /* File specified? */
-   if FileName == NULL then
+   if UtilsStringIsEqual("", CurFileName) then
       FileDesc  := NULL;
       ErrorTrigger();
       ErrorHeader(NULL);
@@ -780,34 +843,19 @@ begin
       ErrorFooter(NULL);
    else
       /* try to open the file */
-      FileDesc  := UtilsFileOpen(FileName, "r");
+      FileDesc  := UtilsFileOpen(CurFileName, "r");
       /* print error if failed */
       if FileDesc == NULL then
          ErrorTrigger();
          ErrorHeader(NULL);
          ErrorBodyStr("Can't open ");
-         ErrorBodyStr(FileName);
+         ErrorBodyStr(CurFileName);
          ErrorBodyStr(" for reading.");
          ErrorFooter(NULL);
       endif;
    endif;
 
 end;
-
-/*****************************************************************************/
-/*                            LexerCleanup                                   */
-/*****************************************************************************/
-
-def LexerCleanup: func()
-begin
-
-   /* close the open file */
-   if FileDesc != NULL then
-      UtilsFileClose(FileDesc);
-   endif;
-
-end;
-
 
 /*****************************************************************************/
 /*                              LexerPlay                                    */
@@ -851,60 +899,15 @@ begin
 end;
 
 /*****************************************************************************/
-/*                              LexerDebug                                   */
+/*                            LexerCleanup                                   */
 /*****************************************************************************/
 
-def LexerDebug: func()
-
-   /* local variables */
-   def CurLexeme : @LexemeT;
-   def Size      : Int32T;
-   def I         : Int32T;
-
+def LexerCleanup: func()
 begin
 
-   /* loop over tokens and print them */
-   CurLexeme := FirstLexeme;
-   while CurLexeme != NULL do
-
-      /* print file name and line no */
-      UtilsConsoleWriteStr("\n");
-      UtilsConsoleWriteStr("File: ");
-      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.FileName);
-      UtilsConsoleWriteStr("\nLine: ");
-      UtilsConsoleWriteInt(CurLexeme@.ErrorData@.LineNo);
-      UtilsConsoleWriteStr("\n");
-
-      /* print lexeme */
-      UtilsConsoleWriteStr("Lexeme: ");
-      UtilsConsoleWriteStr(CurLexeme@.Value);
-      UtilsConsoleWriteStr("\n");
-
-      /* print the line itself */
-      UtilsConsoleWriteStr(CurLexeme@.ErrorData@.Line);
-
-      /* line doesn't contain \n? */
-      Size := CurLexeme@.ErrorData@.LineSize;
-      if CurLexeme@.ErrorData@.Line@[Size-1] != '\n' then
-         UtilsConsoleWriteStr("\n");
-      endif;
-
-      /* print spaces */
-      I := 0;
-      while I < CurLexeme@.ErrorData@.LineOff do
-         UtilsConsoleWriteStr(" ");
-         I++;
-      loop;
-
-      /* now print the fancy ^ */
-      UtilsConsoleWriteStr("^");
-
-      /* print trailing \n */
-      UtilsConsoleWriteStr("\n");
-
-      /* go to next lexeme */
-      CurLexeme := CurLexeme@.Next;
-
-   loop;
+   /* close the open file */
+   if FileDesc != NULL then
+      UtilsFileClose(FileDesc);
+   endif;
 
 end;

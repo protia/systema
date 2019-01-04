@@ -602,10 +602,10 @@ typ ASTFileNodeT: record
    DimList : @ASTDimListNodeT
 );
 
-/* root node */
+/* Root node */
 dec ASTRoot: @ASTNodeT;
 
-/* interface functions */
+/* Init functions */
 dec ASTInit   : func();
 dec ASTCleanup: func();
 

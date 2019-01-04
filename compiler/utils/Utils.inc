@@ -47,4 +47,8 @@ dec UtilsFileWrite       : func(FileDesc: FileDescT, Line:     @StringT ) return
 dec UtilsConsoleWriteStr : func(Line   : @StringT) returns byte;
 dec UtilsConsoleWriteInt : func(Integer: Int32T  ) returns byte;
 
+/* environ */
+dec UtilsEnvironGet: func(ArgName: @StringT) returns @StringT;
+dec UtilsEnvironSet: func(ArgName: @StringT, ArgValue: @StringT);
+
 #endif /* __UTILS_INC */

@@ -20,6 +20,8 @@ dec ErrorHeader : func(ErrorData: @ErrorDataT);
 dec ErrorBodyStr: func(String   : @StringT   );
 dec ErrorBodyInt: func(Integer  : Int32T     );
 dec ErrorFooter : func(ErrorData: @ErrorDataT);
+
+/* Init functions */
 dec ErrorInit   : func();
 dec ErrorCleanup: func();
 

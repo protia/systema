@@ -45,10 +45,9 @@ dec ParseDim         : func() returns @ASTDimNodeT     ;
 dec ParserDimList    : func() returns @ASTDimListNodeT ;
 dec ParserFile       : func() returns @ASTFileNodeT    ;
 
-/* interface functions */
+/* Init functions */
 dec ParserInit   : func();
-dec ParserCleanup: func();
 dec ParserPlay   : func();
-dec ParserDebug  : func();
+dec ParserCleanup: func();
 
 #endif

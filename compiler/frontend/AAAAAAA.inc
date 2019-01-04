@@ -1,10 +1,6 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
-/* register usage */
-#define REG_ACC 0
-#define REG_IDX 1
-
 /* dim types */
 #define DIM_TYP 0
 #define DIM_DEC 1
@@ -18,15 +14,6 @@
 #define STORE_STACK  4
 #define STORE_REG    5
 
-/* location types */
-/* FIXME: redundant */
-#define LOC_REGISTER    0
-#define LOC_STACK       1
-#define LOC_CODE        2
-#define LOC_RODATA      3
-#define LOC_DATA        4
-#define LOC_BSS         5
-
 /* type specifiers */
 #define TYPE_VOID    0
 #define TYPE_BYTE    1
@@ -38,14 +25,6 @@
 #define TYPE_PTR     7
 #define TYPE_ARRAY   8
 #define TYPE_TYPEOF  9
-
-/* lexeme */
-typ lexeme_t: record
-(
-    val : [1024 byte],
-    size: four,
-    type: four
-);
 
 /* type */
 typ param_list_t;
@@ -84,15 +63,8 @@ typ expr_t: record
     long_literal_val : eigh
 );
 
-/* list of expressions */
-typ expr_list_t: record
-(
-    count  : four,
-    expr   : @expr_t,
-    sublist: @expr_list_t
-);
-
 /* memory location */
+
 typ loc_t: record
 (
     specifier: four,
@@ -108,23 +80,6 @@ typ id_list_t: record
     sublist: @id_list_t
 );
 
-/* list of parameters */
-typ param_list_t: record
-(
-    count  : four,
-    name   : @[byte],
-    type   : @type_t,
-    sublist: @param_list_t,
-    any    : four
-);
-
-/* register */
-typ reg_t: record
-(
-    name: @[byte],
-    size: four
-);
-
 /* string pool (managed by code generator) */
 typ str_t: record
 (
@@ -135,32 +90,6 @@ typ str_t: record
 
 /* current lexeme */
 dec lex: lexeme_t;
-
-/* C functions */
-#define NULL (0 as @void)
-#define EOF  -1
-#define stdin  __stdinp
-#define stdout __stdoutp
-#define stderr __stderrp
-typ FILE;
-dec __stdinp:  @FILE;
-dec __stdoutp: @FILE;
-dec __stderrp: @FILE;
-dec fopen   : func(fname: @[byte], mode: @[byte]) returns @FILE;
-dec fclose  : func(fd: @FILE) returns four;
-dec printf  : func(fmt: @[byte], ...) returns four;
-dec fprintf : func(fd: @FILE, fmt: @[byte], ...) returns four;
-dec sprintf : func(str: @[byte], fmt: @[byte], count: four) returns four;
-dec fgets   : func(str: @[byte], count: four, fd: @FILE) returns @[byte];
-dec get_char: func(fd: @FILE) returns four;
-dec isspace : func(chr: byte) returns four;
-dec malloc  : func(size: four) returns @void;
-dec itoa    : func(arr: @[byte], num: four);
-dec strlen  : func(str: @[byte]) returns four;
-dec strcpy  : func(str1: @[byte], str2: @[byte]) returns @[byte];
-dec strcat  : func(str1: @[byte], str2: @[byte]) returns @[byte];
-dec strcmp  : func(str1: @[byte], str2: @[byte]) returns four;
-dec strtol  : func(str: @[byte], ptr: @@[byte], base: four) returns four;
 
 /* alloc.sys */
 dec alloc_type      : func() returns @type_t;

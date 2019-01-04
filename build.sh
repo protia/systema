@@ -116,8 +116,12 @@ for component in $COMPONENTS; do
 	done
 
         # link all the files together
-       if [ $SNAME != none ]; then
-	        obj_list=`ls $BUILD_SUBDIR/*.obj $DPATH/utils/*.obj | awk '{print "in="$0}'`
+        if [ $SNAME != none ]; then
+	 	if [ $LNAME = frontend ]; then
+		        obj_list=`ls $BUILD_SUBDIR/*.obj $DPATH/utils/*.obj | awk '{print "in="$0}'`
+	        else
+	        	obj_list=`ls $BUILD_SUBDIR/*.obj | awk '{print "in="$0}'`
+	        fi
 		pro_file="$BUILD_SUBDIR/$SNAME"
 		$SYSL out=$pro_file $obj_list
 	fi;

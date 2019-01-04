@@ -30,6 +30,20 @@ dec strcat  : func(str1: @[byte], str2: @[byte]) returns @[byte];
 dec strcmp  : func(str1: @[byte], str2: @[byte]) returns four;
 dec strtol  : func(str: @[byte], ptr: @@[byte], base: four) returns four;
 
+/* init function */
+dec Init: func();
+
+/* command-line arguments */
+typ ArgumentT: record
+(
+   Name:  @StringT,
+   Value: @StringT,
+   Next:  @ArgumentT
+);
+
+def FirstArg: @ArgumentT;
+def LastArg: @ArgumentT;
+
 /* memory */
 def UtilsMemAlloc: func(Size: Int32T) returns @void
 begin
@@ -117,4 +131,110 @@ end;
 def UtilsConsoleWriteInt : func(Integer: four) returns Int32T
 begin
    return fprintf(stdout, "%d", Integer);
+end;
+
+/* unix arguments --> protia environment */
+def UtilsEnvironGet: func(ArgName: @StringT) returns @StringT
+   def CurArg : @ArgumentT;
+   def RetVal : @StringT;
+   def Done   : BooleanT;
+begin
+   CurArg := FirstArg;
+   Done := FALSE;
+   while Done == FALSE and CurArg != NULL do
+      if UtilsStringIsEqual(CurArg@.Name, ArgName) then
+         Done := TRUE;
+      else
+         CurArg := CurArg@.Next;
+      endif;
+   loop;
+   if CurArg != NULL then
+      RetVal := CurArg@.Value;
+   else
+      RetVal := "";
+   endif;
+   return RetVal;
+end;
+
+def UtilsEnvironSet: func(ArgName: @StringT, ArgValue: @StringT)
+   def CurArg : @ArgumentT;
+   def Done   : BooleanT;
+begin
+   CurArg := FirstArg;
+   Done := FALSE;
+   while Done == FALSE and CurArg != NULL do
+      if UtilsStringIsEqual(CurArg@.Name, ArgName) then
+         Done := TRUE;
+      else
+         CurArg := CurArg@.Next;
+      endif;
+   loop;
+   if CurArg == NULL then
+      CurArg := UtilsMemAlloc(sizeof(ArgumentT));
+      CurArg@.Name  := ArgName;
+      CurArg@.Value := ArgValue;
+      CurArg@.Next  := NULL;
+      if FirstArg == NULL then
+         FirstArg := CurArg;
+         LastArg  := CurArg;
+      else
+         LastArg@.Next := CurArg;
+         LastArg := CurArg;
+      endif;
+   endif;
+end;
+
+/* unix main */
+def main: func(argc: Int32T, argv: @[@StringT]) returns Int32T
+   def ArgName  : @StringT;
+   def ArgValue : @StringT;
+   def I        : Int32T;
+   def J        : Int32T;
+   def K        : Int32T;
+   def RetVal   : Int32T;
+begin
+   /* initialize argument linked list */
+   FirstArg := NULL;
+   LastArg  := NULL;
+   /* loop over arguments */
+   I := 1;
+   while I < argc do
+      /* look for '=' */
+      J := 0;
+      while argv@[I]@[J] != '=' and argv@[I]@[J] != 0 do
+         J++;
+      loop;
+      /* copy everything before J */
+      ArgName := UtilsStringAlloc(J);
+      K := 0;
+      while K < J do
+         ArgName@[K] := argv@[I]@[K];
+         K++;
+      loop;
+      ArgName@[K] := 0;
+      /* copy value */
+      if argv@[I]@[J] == '=' then
+         ArgValue := &argv@[I]@[J+1] as @StringT;
+      else
+         ArgValue := "yes";
+      endif;
+      /* add the argument to the linked list */
+      UtilsEnvironSet(ArgName, ArgValue);
+      /* next agument */
+      I++;
+   loop;
+
+   /* call init function */
+   Init();
+
+   /* error? */
+   if UtilsStringIsEqual(UtilsEnvironGet("err"), "") then
+      RetVal := 0;
+   else
+      RetVal := -1;
+   endif;
+
+   /* done */
+   return RetVal;
+
 end;

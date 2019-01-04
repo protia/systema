@@ -58,11 +58,11 @@ dec LexerIsHex     : func(TestByte: ByteT   ) returns BooleanT;
 dec LexerIsAlpha   : func(TestByte: ByteT   ) returns BooleanT;
 dec LexerIsSpace   : func(TestByte: ByteT   ) returns BooleanT;
 dec LexerGetLexeme : func(                  ) returns @LexemeT;
+dec LexerDebug     : func(                  )                 ;
 
-/* Interface functions */
-dec LexerInit   : func(FileName: @StringT);
-dec LexerCleanup: func(                  );
-dec LexerPlay   : func(                  );
-dec LexerDebug  : func(                  );
+/* Init functions */
+dec LexerInit   : func();
+dec LexerPlay   : func();
+dec LexerCleanup: func();
 
 #endif /* __LEXER_INC */

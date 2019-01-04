@@ -1,0 +1,64 @@
+/*****************************************************************************/
+/*                            Init Module                                    */
+/*****************************************************************************/
+
+/* Utility library */
+#include <Utils.inc>
+
+/* Error Module */
+#include "Error.inc"
+
+/* AST Module */
+#include "AST.inc"
+
+/* Symtab Module */
+#include "Symtab.inc"
+
+/* Lexer Module */
+#include "Lexer.inc"
+
+/* Parser Module */
+#include "Parser.inc"
+
+/* Semantic Module */
+#include "Semantic.inc"
+
+/* Codegen Module */
+#include "Codegen.inc"
+
+/*****************************************************************************/
+/*                               Init                                        */
+/*****************************************************************************/
+
+def Init: func()
+begin
+
+   /* initialize helper components */
+   ErrorInit();
+   ASTInit();
+   SymtabInit();
+
+   /* initialize basic components */
+   LexerInit();
+   ParserInit();
+   SemanticInit();
+   CodegenInit();
+
+   /* translate */
+   LexerPlay();
+   ParserPlay();
+   SemanticPlay();
+   CodegenPlay();
+
+   /* clean up basic components */
+   LexerCleanup();
+   ParserCleanup();
+   SemanticCleanup();
+   CodegenCleanup();
+
+   /* clean up helper components */
+   ErrorCleanup();
+   ASTCleanup();
+   SymtabCleanup();
+
+end;
