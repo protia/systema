@@ -734,6 +734,7 @@ begin
    Keywords[I++] := "bss";
    Keywords[I++] := "stack";
    Keywords[I++] := "register";
+   Keywords[I++] := "void";
    Keywords[I++] := "byte";
    Keywords[I++] := "twin";
    Keywords[I++] := "four";

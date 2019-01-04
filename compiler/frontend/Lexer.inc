@@ -47,6 +47,18 @@ typ LexemeT: record
 dec FirstLexeme: @LexemeT;
 dec LastLexeme:  @LexemeT;
 
+/* Internal functions */
+dec LexerGetByte   : func(                  ) returns ByteT   ;
+dec LexerUngetByte : func(                  )                 ;
+dec LexerIsOperator: func(String  : @StringT) returns BooleanT;
+dec LexerIsKeyword : func(String  : @StringT) returns BooleanT;
+dec LexerIsDec     : func(TestByte: ByteT   ) returns BooleanT;
+dec LexerIsOct     : func(TestByte: ByteT   ) returns BooleanT;
+dec LexerIsHex     : func(TestByte: ByteT   ) returns BooleanT;
+dec LexerIsAlpha   : func(TestByte: ByteT   ) returns BooleanT;
+dec LexerIsSpace   : func(TestByte: ByteT   ) returns BooleanT;
+dec LexerGetLexeme : func(                  ) returns @LexemeT;
+
 /* Interface functions */
 dec LexerInit   : func(FileName: @StringT);
 dec LexerCleanup: func(                  );

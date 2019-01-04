@@ -1,6 +1,9 @@
 /* Utility library */
 #include <Utils.inc>
 
+/* AST definitions */
+#include "AST.inc"
+
 /* Error module */
 #include "Error.inc"
 
@@ -14,7 +17,6 @@
 /*                               Parser                                      */
 /*****************************************************************************/
 
-def ASTRoot:   @ASTFileNodeT;
 def CurLexeme: @LexemeT;
 
 /*****************************************************************************/
@@ -205,7 +207,7 @@ def ParserParList: func() returns @ASTParListNodeT
 
    /* local variables */
    def ParList: @ASTParListNodeT;
-   def CurPar : @ASTParamNodeT;
+   def CurPar : @ASTParNodeT;
 
 begin
 
@@ -345,6 +347,7 @@ begin
          !UtilsStringIsEqual(CurLexeme@.Value, "byte")   and
          !UtilsStringIsEqual(CurLexeme@.Value, "twin")   and
          !UtilsStringIsEqual(CurLexeme@.Value, "four")   and
+         !UtilsStringIsEqual(CurLexeme@.Value, "eigh")   and
          !UtilsStringIsEqual(CurLexeme@.Value, "func")   and
          !UtilsStringIsEqual(CurLexeme@.Value, "record") and
          !UtilsStringIsEqual(CurLexeme@.Value, "text")   and
@@ -352,7 +355,7 @@ begin
          !UtilsStringIsEqual(CurLexeme@.Value, "@")      and
          CurLexeme@.Type != LEX_IDENTIFIER
       then
-         TypeNode@.ArraySize := ParserExpr();
+         TypeNode@.ArraySize := ParserFactor();
       endif;
 
       /* mandatory subtype */
@@ -367,7 +370,7 @@ begin
       TypeNode@.Lexeme := ParserOperator("@");
 
       /* subtype */
-      TypeNode@.SubType :=ParserType();
+      TypeNode@.SubType := ParserType();
 
    elsif CurLexeme@.Type == LEX_IDENTIFIER then
 
@@ -532,7 +535,7 @@ begin
          /* type casting */
          CastNode                  := UtilsMemAlloc(sizeof(ASTCastNodeT));
          CastNode@.Super.Type      := AST_CAST;
-         CastNode@.Super.Lexeme    := ParserOperator("as");
+         CastNode@.Super.Lexeme    := ParserKeyword("as");
          CastNode@.SubExpr         := ExprNode;
          CastNode@.NewType         := ParserType();
          ExprNode                  := CastNode as @ASTExprNodeT;
@@ -1307,8 +1310,17 @@ begin
    ExprList@.FirstExpr := NULL;
    ExprList@.LastExpr  := NULL;
 
+   /* empty expression list? */
+   if UtilsStringIsEqual(CurLexeme@.Value, ":") or
+      UtilsStringIsEqual(CurLexeme@.Value, ";") or
+      UtilsStringIsEqual(CurLexeme@.Value, ")")
+   then
+      Done := TRUE;
+   else
+      Done := FALSE;
+   endif;
+
    /* loop over the expressions */
-   Done := FALSE;
    while Done == FALSE do
       /* parse expression */
       ExprNode := ParserExpr();
@@ -1326,11 +1338,313 @@ begin
       /* done? */
       if !UtilsStringIsEqual(CurLexeme@.Value, ",") then
          Done := TRUE;
+      else
+         ParserOperator(",");
       endif;
    loop;
 
    /* return the expression list */
    return ExprList as @ASTStmtNodeT;
+
+end;
+
+/*****************************************************************************/
+/*                             ParserWhile                                   */
+/*****************************************************************************/
+
+/* while_block: 'while' expr 'do' stmt_list 'done'
+ */
+
+def ParserWhile: func() returns @ASTStmtNodeT
+
+   /* local variables */
+   def WhileNode     : @ASTWhileNodeT;
+
+begin
+
+   /* allocate statement list */
+   WhileNode           := UtilsMemAlloc(sizeof(ASTWhileNodeT));
+   WhileNode@.Type     := AST_WHILE;
+   WhileNode@.Lexeme   := NULL;
+   WhileNode@.CondExpr := NULL;
+   WhileNode@.StmtList := NULL;
+
+   /* parse while */
+   WhileNode@.Lexeme    := ParserKeyword("while");
+
+   /* parse expr */
+   WhileNode@.CondExpr  := ParserExpr();
+
+   /* parse do */
+   ParserKeyword("do");
+
+   /* statements */
+   WhileNode@.StmtList := ParserStmtList();
+
+   /* loop */
+   ParserKeyword("loop");
+
+   /* done */
+   return WhileNode as @ASTStmtNodeT;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserFor                                    */
+/*****************************************************************************/
+
+/* for_block: 'for' expr ['unsigned'] 'from' start ['down'] 'to' end
+ *             ['step' increment] 'do' stmt_list 'done'
+ */
+
+def ParserFor: func() returns @ASTStmtNodeT
+
+   /* local variables */
+   def ForNode     : @ASTForNodeT;
+
+begin
+
+   /* allocate statement list */
+   ForNode            := UtilsMemAlloc(sizeof(ASTForNodeT));
+   ForNode@.Type      := AST_FOR;
+   ForNode@.Lexeme    := NULL;
+   ForNode@.CondExpr  := NULL;
+   ForNode@.StartExpr := NULL;
+   ForNode@.EndExpr   := NULL;
+   ForNode@.StepExpr  := NULL;
+   ForNode@.StmtList  := NULL;
+   ForNode@.Down      := NULL;
+   ForNode@.Unsigned  := NULL;
+
+   /* parse for */
+   ForNode@.Lexeme    := ParserKeyword("for");
+
+   /* parse expr */
+   ForNode@.CondExpr  := ParserExpr();
+
+   /* unsigned? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "unsigned") then
+      ForNode@.Unsigned   := ParserKeyword("unsigned");
+   endif;
+
+   /* parse from */
+   ParserKeyword("from");
+
+   /* parse start */
+   ForNode@.StartExpr := ParserExpr();
+
+   /* down? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "down") then
+      ForNode@.Down   := ParserKeyword("down");
+   endif;
+
+   /* parse to */
+   ParserKeyword("to");
+
+   /* parse end */
+   ForNode@.EndExpr := ParserExpr();
+
+   /* step? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "step") then
+      ParserKeyword("step");
+      ForNode@.StepExpr := ParserExpr();
+   endif;
+
+   /* do */
+   ParserKeyword("do");
+
+   /* statements */
+   ForNode@.StmtList := ParserStmtList();
+
+   /* loop */
+   ParserKeyword("loop");
+
+   /* done */
+   return ForNode as @ASTStmtNodeT;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserWhen                                   */
+/*****************************************************************************/
+
+/* when_block: 'when' expr_list|others ':' stmt_list */
+
+def ParserWhen: func() returns @ASTWhenNodeT
+
+   /* local variables */
+   def WhenNode    : @ASTWhenNodeT;
+
+begin
+
+   /* allocate a when node */
+   WhenNode           := UtilsMemAlloc(sizeof(ASTWhenNodeT));
+   WhenNode@.Type     := AST_WHEN;
+   WhenNode@.Lexeme   := NULL;
+   WhenNode@.ExprList := NULL;
+   WhenNode@.StmtList := NULL;
+
+   /* parse 'when' */
+   WhenNode@.Lexeme   := ParserKeyword("when");
+
+   /* others? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "others") then
+      ParserKeyword("others");
+   else
+      WhenNode@.ExprList := ParserExprList() as @ASTExprListNodeT;
+   endif;
+
+   /* parse ':' */
+   ParserOperator(":");
+
+   /* statements */
+   WhenNode@.StmtList := ParserStmtList();
+
+   /* done */
+   return WhenNode;
+
+end;
+
+/*****************************************************************************/
+/*                              ParserCase                                   */
+/*****************************************************************************/
+
+/* case_block: 'case' expr (when_block)* 'esac'
+ */
+
+def ParserCase: func() returns @ASTStmtNodeT
+
+   /* local variables */
+   def CaseNode    : @ASTCaseNodeT;
+   def WhenNode    : @ASTWhenNodeT;
+   def Done        : BooleanT;
+
+begin
+
+   /* allocate case node */
+   CaseNode            := UtilsMemAlloc(sizeof(ASTCaseNodeT));
+   CaseNode@.Type      := AST_CASE;
+   CaseNode@.Lexeme    := NULL;
+   CaseNode@.CondExpr  := NULL;
+   CaseNode@.FirstWhen := NULL;
+   CaseNode@.LastWhen  := NULL;
+
+   /* parse 'case' token */
+   CaseNode@.Lexeme    := ParserKeyword("case");
+
+   /* parse sub expression */
+   CaseNode@.CondExpr  := ParserExpr();
+
+   /* when blocks */
+   while UtilsStringIsEqual(CurLexeme@.Value, "when") do
+      /* parse when */
+      WhenNode := ParserWhen();
+      /* add to parent */
+      WhenNode@.Next := NULL;
+      if CaseNode@.FirstWhen == NULL then
+         CaseNode@.FirstWhen      := WhenNode;
+         CaseNode@.LastWhen       := WhenNode;
+      else
+         CaseNode@.LastWhen@.Next := WhenNode;
+         CaseNode@.LastWhen       := WhenNode;
+      endif;
+   loop;
+
+   /* parse esac */
+   ParserKeyword("esac");
+
+   /* done */
+   return CaseNode as @ASTStmtNodeT;
+
+end;
+
+/*****************************************************************************/
+/*                               ParserIf                                    */
+/*****************************************************************************/
+
+/* if_block: 'if' expr 'then' stmt_list
+ *            ['elsif' stmt_list]*['else' stmt_list] 'endif'
+ */
+
+def ParserIf: func() returns @ASTStmtNodeT
+
+   /* local variables */
+   def IfNode    : @ASTIfNodeT;
+   def CurNode   : @ASTIfNodeT;
+   def LastNode  : @ASTIfNodeT;
+
+begin
+
+   /* allocate if node */
+   IfNode            := UtilsMemAlloc(sizeof(ASTIfNodeT));
+   IfNode@.Type      := AST_IF;
+   IfNode@.Lexeme    := NULL;
+   IfNode@.CondExpr  := NULL;
+   IfNode@.ThenStmts := NULL;
+   IfNode@.ElseStmts := NULL;
+
+   /* parse 'if' token */
+   IfNode@.Lexeme    := ParserKeyword("if");
+
+   /* parse cond */
+   IfNode@.CondExpr  := ParserExpr();
+
+   /* parse then */
+   ParserKeyword("then");
+
+   /* get then statements */
+   IfNode@.ThenStmts := ParserStmtList();
+
+   /* mark the created node as last node */
+   LastNode := IfNode;
+
+   /* elsif? */
+   while UtilsStringIsEqual(CurLexeme@.Value, "elsif") do
+
+      /* create a new if node */
+      CurNode            := UtilsMemAlloc(sizeof(ASTIfNodeT));
+      CurNode@.Type      := AST_IF;
+      CurNode@.Lexeme    := NULL;
+      CurNode@.Next      := NULL;
+      CurNode@.CondExpr  := NULL;
+      CurNode@.ThenStmts := NULL;
+      CurNode@.ElseStmts := NULL;
+
+      /* parse elsif */
+      CurNode@.Lexeme := ParserKeyword("elsif");
+
+      /* parse condition */
+      CurNode@.CondExpr  := ParserExpr();
+
+      /* parse then */
+      ParserKeyword("then");
+
+      /* get then statements */
+      CurNode@.ThenStmts := ParserStmtList();
+
+      /* add this node to the else part of last node */
+      LastNode@.ElseStmts := UtilsMemAlloc(sizeof(ASTStmtListNodeT));
+      LastNode@.ElseStmts@.Type := AST_STMT_LIST;
+      LastNode@.ElseStmts@.Lexeme := NULL;
+      LastNode@.ElseStmts@.FirstStmt := CurNode as @ASTStmtNodeT;
+      LastNode@.ElseStmts@.LastStmt := CurNode as @ASTStmtNodeT;
+
+      /* mark this node as the last node */
+      LastNode := CurNode;
+
+   loop;
+
+   /* else? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "else") then
+      ParserKeyword("else");
+      LastNode@.ElseStmts := ParserStmtList();
+   endif;
+
+   /* parse end if */
+   ParserKeyword("endif");
+
+   /* done */
+   return IfNode as @ASTStmtNodeT;
 
 end;
 
@@ -1379,16 +1693,16 @@ begin
          StmtNode := NULL;
          if UtilsStringIsEqual(CurLexeme@.Value, "if") then
             /* parse if */
-            //StmtNode:= ParserIf();
+            StmtNode := ParserIf();
          elsif UtilsStringIsEqual(CurLexeme@.Value, "case") then
             /* parse case */
-            //StmtNode:= ParserCase();
+            StmtNode := ParserCase();
          elsif UtilsStringIsEqual(CurLexeme@.Value, "for") then
             /* parse for */
-            //StmtNode:= ParserFor();
+            StmtNode := ParserFor();
          elsif UtilsStringIsEqual(CurLexeme@.Value, "while") then
             /* parse while */
-            //StmtNode:= ParserWhile();
+            StmtNode := ParserWhile();
          else
             /* parse expr list */
             StmtNode := ParserExprList();
@@ -1445,6 +1759,13 @@ begin
 
    /* statement list */
    FuncNode@.StmtList := ParserStmtList();
+
+   /* return? */
+   if UtilsStringIsEqual(CurLexeme@.Value, "return") then
+      ParserKeyword("return");
+      FuncNode@.RetExpr := ParserExpr();
+      ParserOperator(";");
+   endif;
 
    /* parse end */
    ParserKeyword("end");
@@ -1645,9 +1966,6 @@ end;
 def ParserInit: func()
 begin
 
-   /* initialize ASTRoot */
-   ASTRoot := NULL;
-
    /* set CurLexeme to null */
    CurLexeme := NULL;
 
@@ -1674,7 +1992,7 @@ begin
    /* parse the file */
    if ErrorFlag == FALSE then
       CurLexeme := FirstLexeme;
-      ASTRoot   := ParserFile();
+      ASTRoot   := ParserFile() as @ASTNodeT;
    endif;
 
 end;

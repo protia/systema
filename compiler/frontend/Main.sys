@@ -4,6 +4,9 @@
 /* Error Module */
 #include "Error.inc"
 
+/* AST Module */
+#include "AST.inc"
+
 /* Lexer Module */
 #include "Lexer.inc"
 
@@ -53,6 +56,7 @@ begin
 
    /* initialize helper components */
    ErrorInit();
+   ASTInit();
 
    /* initialize basic components */
    LexerInit(inFileName);
@@ -62,9 +66,13 @@ begin
    LexerPlay();
    ParserPlay();
 
-   /* clean up things */
+   /* clean up basic components */
    LexerCleanup();
    ParserCleanup();
+
+   /* clean up helper components */
+   ErrorCleanup();
+   ASTCleanup();
 
    /* done */
    return ErrorFlag;
