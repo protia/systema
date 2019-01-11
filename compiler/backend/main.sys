@@ -47,7 +47,7 @@ begin
 
    /* now process the cmd */
    if err == 0 then
-      sprintf(&command, "cp %s %s", &infile, &outfile);
+      sprintf(&command, "llc60 -o %s %s", &outfile, &infile);
       err := system(&command);
    endif;
 

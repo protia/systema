@@ -7,6 +7,9 @@
 /* AST definitions */
 #include "AST.inc"
 
+/* Internal functions */
+dec CodegenType: func(Node: @ASTTypeNodeT);
+
 /* Init functions */
 dec CodegenInit: func();
 dec CodegenPlay: func();

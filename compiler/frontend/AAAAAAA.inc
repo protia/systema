@@ -1,54 +1,6 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
-/* dim types */
-#define DIM_TYP 0
-#define DIM_DEC 1
-#define DIM_DEF 2
-
-/* storage classes */
-#define STORE_CODE   0
-#define STORE_RODATA 1
-#define STORE_DATA   2
-#define STORE_BSS    3
-#define STORE_STACK  4
-#define STORE_REG    5
-
-/* type specifiers */
-#define TYPE_VOID    0
-#define TYPE_BYTE    1
-#define TYPE_HALF    2
-#define TYPE_WORD    3
-#define TYPE_DOBL    4
-#define TYPE_FUNC    5
-#define TYPE_RECORD  6
-#define TYPE_PTR     7
-#define TYPE_ARRAY   8
-#define TYPE_TYPEOF  9
-
-/* type */
-typ param_list_t;
-typ type_t: record
-(
-    specifier : four,
-    complete  : four,
-    subcount  : four,
-    subtype   : @type_t,
-    rettype   : @type_t,
-    param_list: @param_list_t
-);
-
-/* symbol */
-typ sym_t: record
-(
-    next : @sym_t,
-    name : @[byte],
-    val  : @[byte],
-    type : @type_t,
-    scope: four,
-    decl : four
-);
-
 /* expression */
 typ expr_t: record
 (
@@ -64,21 +16,6 @@ typ expr_t: record
 );
 
 /* memory location */
-
-typ loc_t: record
-(
-    specifier: four,
-    reg_name : @[byte],
-    reg_size : four
-);
-
-/* list of identifiers */
-typ id_list_t: record
-(
-    count  : four,
-    sym    : @sym_t,
-    sublist: @id_list_t
-);
 
 /* string pool (managed by code generator) */
 typ str_t: record

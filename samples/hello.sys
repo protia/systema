@@ -4,11 +4,19 @@
  * This is an example program for systema
  */
 
+typ abc;
+
+typ ghi as @abc;
+
+dec y as @void;
+
+def x as four;
+
 /* declare external prinf function */
-dec printf as func (fmt : text, ...      ) returns byte ;
+dec printf as func (fmt : text, ...      ) returns byte;
 
 /* main function */
-def main as func (argc: four, argv: @[text]) returns byte
+def main as func (argc: four, argv: @[text]) returns four
     def i  as eigh;
 begin
     /* initialize loop counter */

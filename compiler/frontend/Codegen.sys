@@ -8,6 +8,9 @@
 /* AST definitions */
 #include "AST.inc"
 
+/* Symbol table */
+#include "Symtab.inc"
+
 /* Error module */
 #include "Error.inc"
 
@@ -18,6 +21,254 @@
 /*                              Globals                                      */
 /*****************************************************************************/
 
+/* File handler */
+def OutFileName  : @StringT;
+def OutFileDesc  : FileDescT;
+
+/*****************************************************************************/
+/*                            CodegenEmit                                    */
+/*****************************************************************************/
+
+def CodegenEmitStr: func(Str: @StringT)
+begin
+   UtilsFileWrite(OutFileDesc, Str);
+end;
+
+/*****************************************************************************/
+/*                           CodegenEmitInt                                  */
+/*****************************************************************************/
+
+def CodegenEmitInt: func(Int: Int64T)
+
+   def Str: [20 byte];
+
+begin
+
+   UtilsStringFromInt(&Str, Int);
+   UtilsFileWrite(OutFileDesc, &Str);
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenPar                                    */
+/*****************************************************************************/
+
+def CodegenPar: func(Node: @ASTParNodeT)
+begin
+
+   /* print my type */
+   CodegenType(Node@.TypeNode);
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenType                                   */
+/*****************************************************************************/
+
+def CodegenParList: func(Node: @ASTParListNodeT)
+
+   /* local vars */
+   def CurPar  : @ASTParNodeT;
+
+begin
+
+   /* loop over parameters */
+   CurPar := Node@.FirstPar;
+   while CurPar != NULL do
+      /* perform semantics */
+      CodegenPar(CurPar);
+      /* next par */
+      CurPar := CurPar@.Next;
+      /* there is a par next to me? */
+      if CurPar != NULL then
+         CodegenEmitStr(",");
+      endif;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenType                                    */
+/*****************************************************************************/
+
+def CodegenType: func(Node: @ASTTypeNodeT)
+begin
+
+   /* generate llvm type description omg omg */
+   case Node@.Spec
+      when TYPE_VOID:
+         CodegenEmitStr("i8");
+      when TYPE_BYTE:
+         CodegenEmitStr("i8");
+      when TYPE_HALF:
+         CodegenEmitStr("i16");
+      when TYPE_WORD:
+         CodegenEmitStr("i32");
+      when TYPE_DOBL:
+         CodegenEmitStr("i64");
+      when TYPE_PTR:
+         CodegenType(Node@.SubType);
+         CodegenEmitStr("*");
+      when TYPE_ARRAY:
+         CodegenEmitStr("[");
+         if Node@.IsComplete then
+            CodegenEmitInt(Node@.SubCount);
+         else
+            CodegenEmitInt(1);
+         endif;
+         CodegenEmitStr(" x ");
+         CodegenType(Node@.SubType);
+         CodegenEmitStr("]");
+      when TYPE_FUNC:
+         if Node@.RetType != NULL then
+            CodegenType(Node@.RetType);
+            CodegenEmitStr(" ");
+         else
+            CodegenEmitStr("void ");
+         endif;
+         CodegenEmitStr("(");
+         CodegenParList(Node@.ParList);
+         CodegenEmitStr(")");
+      when TYPE_RECORD:
+         /* TODO */
+   esac;
+
+end;
+
+
+/*****************************************************************************/
+/*                            CodegenFunc                                    */
+/*****************************************************************************/
+
+def CodegenFunc: func(Node: @ASTDimNodeT)
+begin
+
+   /* function definition */
+   CodegenEmitStr("define ");
+   /* return type */
+   if Node@.TypeNode@.RetType != NULL then
+      CodegenType(Node@.TypeNode@.RetType);
+      CodegenEmitStr(" ");
+   else
+      CodegenEmitStr("void ");
+   endif;
+   /* function name */
+   CodegenEmitStr("@");
+   CodegenEmitStr(Node@.Identifier@.Value);
+   /* emit parameter list */
+   CodegenEmitStr("(");
+   CodegenParList(Node@.TypeNode@.ParList);
+   CodegenEmitStr(")");
+   /* function body */
+   CodegenEmitStr("{\n");
+   /* increase scope */
+
+   /* now we should add all function parameters to symtab */
+
+   /* process dim list */
+
+   /* process statements */
+
+   /* return expression */
+
+   /* end of function */
+   CodegenEmitStr("}\n");
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenDim                                    */
+/*****************************************************************************/
+
+def CodegenDim: func(Node: @ASTDimNodeT)
+
+begin
+
+   case Node@.DimType
+
+      when DIM_DEC:
+         /* declaring a function or declaring a variable? */
+         if Node@.TypeNode@.Spec == TYPE_FUNC then
+            /* function declaration */
+            CodegenEmitStr("declare ");
+            /* return type */
+            if Node@.TypeNode@.RetType != NULL then
+               CodegenType(Node@.TypeNode@.RetType);
+               CodegenEmitStr(" ");
+            else
+               CodegenEmitStr("void ");
+            endif;
+            /* function name */
+            CodegenEmitStr("@");
+            CodegenEmitStr(Node@.Identifier@.Value);
+            /* emit parameter list */
+            CodegenEmitStr("(");
+            CodegenParList(Node@.TypeNode@.ParList);
+            CodegenEmitStr(")");
+         else
+            /* variable declaration */
+            CodegenEmitStr("@");
+            CodegenEmitStr(Node@.Identifier@.Value);
+            CodegenEmitStr(" = ");
+            /* extern */
+            CodegenEmitStr("external ");
+            /* global */
+            CodegenEmitStr("global ");
+            /* type */
+            CodegenType(Node@.TypeNode);
+         endif;
+         CodegenEmitStr("\n");
+
+      when DIM_DEF:
+
+         /* defining a function or defining a global variable? */
+         if Node@.TypeNode@.Spec == TYPE_FUNC then
+            /* function definition */
+            CodegenFunc(Node);
+         else
+            /* variable definition */
+            CodegenEmitStr("@");
+            CodegenEmitStr(Node@.Identifier@.Value);
+            CodegenEmitStr(" = ");
+            /* global */
+            CodegenEmitStr("global ");
+            /* type */
+            CodegenType(Node@.TypeNode);
+            CodegenEmitStr(" ");
+            /* initialized? */
+            if Node@.Initializer != NULL then
+               /* TODO: emit literal value */
+            else
+               CodegenEmitStr("zeroinitializer");
+            endif;
+         endif;
+         CodegenEmitStr("\n");
+
+      when DIM_TYP:
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                           CodegenDimList                                  */
+/*****************************************************************************/
+
+def CodegenDimList: func(Node: @ASTDimListNodeT)
+
+   /* local variables */
+   def DimNode : @ASTDimNodeT;
+
+begin
+
+   /* loop over dim statements */
+   DimNode := Node@.FirstDim;
+   while DimNode != NULL do
+      CodegenDim(DimNode);
+      DimNode := DimNode@.Next;
+   loop;
+
+end;
+
 /*****************************************************************************/
 /*                            CodegenFile                                    */
 /*****************************************************************************/
@@ -25,7 +276,14 @@
 def CodegenFile: func(Node: @ASTFileNodeT)
 begin
 
-   //UtilsConsoleWriteStr("Welcome from file!\n");
+   /* enter scope */
+   SymtabIncScope();
+
+   /* go through the file */
+   CodegenDimList(Node@.DimList);
+
+   /* leave scope */
+   SymtabDecScope();
 
 end;
 
@@ -36,8 +294,28 @@ end;
 def CodegenInit: func()
 begin
 
-   /* initialize unsigned flag */
-
+   /* get the name of the output file */
+   OutFileName := UtilsEnvironGet("out");
+   /* File specified? */
+   if UtilsStringIsEqual("", OutFileName) then
+      OutFileDesc  := NULL;
+      ErrorTrigger();
+      ErrorHeader(NULL);
+      ErrorBodyStr("No output file specified.");
+      ErrorFooter(NULL);
+   else
+      /* try to open the file */
+      OutFileDesc  := UtilsFileOpen(OutFileName, "w");
+      /* print error if failed */
+      if OutFileDesc == NULL then
+         ErrorTrigger();
+         ErrorHeader(NULL);
+         ErrorBodyStr("Can't open ");
+         ErrorBodyStr(OutFileName);
+         ErrorBodyStr(" for writing.");
+         ErrorFooter(NULL);
+      endif;
+   endif;
 end;
 
 /*****************************************************************************/

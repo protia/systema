@@ -8,6 +8,9 @@
 /* AST definitions */
 #include "AST.inc"
 
+/* Symbol table */
+#include "Symtab.inc"
+
 /* Error module */
 #include "Error.inc"
 
@@ -18,6 +21,1155 @@
 /*                               Globals                                     */
 /*****************************************************************************/
 
+/*****************************************************************************/
+/*                             SemanticError                                 */
+/*****************************************************************************/
+
+def SemanticError: func(Lexeme: @LexemeT, Msg: @StringT)
+
+begin
+
+   /* error */
+   ErrorTrigger();
+   /* print header */
+   if Lexeme != NULL then
+      ErrorHeader(Lexeme@.ErrorData);
+   endif;
+   /* print error message */
+   ErrorBodyStr("Semantic Error: ");
+   ErrorBodyStr(Msg);
+   ErrorBodyStr("\n");
+   /* print footer */
+   if Lexeme != NULL then
+      ErrorFooter(Lexeme@.ErrorData);
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticTypeMatch                               */
+/*****************************************************************************/
+
+def SemanticTypeMatch:
+      func(Type1: @ASTTypeNodeT, Type2: @ASTTypeNodeT) returns BooleanT
+
+   /* result to be returned */
+   def Res : BooleanT;
+
+begin
+
+   Res := FALSE;
+
+   return Res;
+
+end;
+
+/*****************************************************************************/
+/*                             SemanticPar                                   */
+/*****************************************************************************/
+
+def SemanticPar: func(Node: @ASTParNodeT)
+
+begin
+
+   /* just perform the semantics on par type */
+   SemanticType(Node@.TypeNode);
+   if Node@.TypeNode@.IsComplete == FALSE then
+      SemanticError(Node@.TypeNode@.Lexeme, SERR_PAR_COMPL);
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticParList                                 */
+/*****************************************************************************/
+
+def SemanticParList: func(Node: @ASTParListNodeT)
+
+   /* local vars */
+   def CurPar  : @ASTParNodeT;
+   def OtherPar: @ASTParNodeT;
+
+begin
+
+   /* loop over parameters */
+   CurPar := Node@.FirstPar;
+   while CurPar != NULL do
+      /* perform semantics */
+      SemanticPar(CurPar);
+      /* the name should be unique */
+      OtherPar := CurPar@.Next;
+      while OtherPar != NULL do
+         if UtilsStringIsEqual(CurPar@.Lexeme@.Value,
+                               OtherPar@.Lexeme@.Value)
+         then
+            SemanticError(OtherPar@.Lexeme, SERR_PAR_NAME);
+         endif;
+         OtherPar := OtherPar@.Next;
+      loop;
+      /* next part */
+      CurPar := CurPar@.Next;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticType                                   */
+/*****************************************************************************/
+
+def SemanticType: func(Node: @ASTTypeNodeT)
+
+   /* local variables */
+   def Sym     : @SymbolT;
+
+begin
+
+   /* annotate with type specifier */
+   if UtilsStringIsEqual(Node@.Lexeme@.Value, "void") then
+      /* void */
+      Node@.Spec       := TYPE_VOID;
+      Node@.IsComplete := FALSE;
+      Node@.SubCount   := 0;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "byte") then
+      /* byte */
+      Node@.Spec       := TYPE_BYTE;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "twin") then
+      /* half */
+      Node@.Spec       := TYPE_HALF;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "four") then
+      /* word */
+      Node@.Spec       := TYPE_WORD;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "eigh") then
+      /* double */
+      Node@.Spec       := TYPE_DOBL;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "@") then
+      /* pointer */
+      Node@.Spec       := TYPE_PTR;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+      SemanticType(Node@.SubType);
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "[") then
+      /* array */
+      Node@.Spec       := TYPE_ARRAY;
+      if Node@.ArraySize != NULL then
+         /* TODO: support literal expressions */
+         if Node@.ArraySize@.Type == AST_INT_LITERAL then
+            Node@.IsComplete := TRUE;
+            Node@.SubCount := UtilsStringToInt(Node@.ArraySize@.Lexeme@.Value);
+         else
+            SemanticError(Node@.Lexeme, SERR_ARR_LITERAL);
+            Node@.IsComplete := FALSE;
+            Node@.SubCount   := 0;
+         endif;
+      else
+         Node@.IsComplete := FALSE;
+         Node@.SubCount   := 0;
+      endif;
+      SemanticType(Node@.SubType);
+      /* array subtype must be complete */
+      if Node@.SubType@.IsComplete == FALSE then
+         SemanticError(Node@.SubType@.Lexeme, SERR_ARR_COMPL);
+      endif;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "func") then
+      /* function */
+      Node@.Spec       := TYPE_FUNC;
+      Node@.IsComplete := FALSE;
+      Node@.SubCount   := 0;
+      SemanticParList(Node@.ParList);
+      if Node@.RetType != NULL then
+         SemanticType(Node@.RetType);
+         if Node@.RetType@.IsComplete == FALSE then
+            SemanticError(Node@.RetType@.Lexeme, SERR_RET_COMPL);
+         endif;
+      endif;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "record") then
+      /* record */
+      Node@.Spec       := TYPE_RECORD;
+      Node@.IsComplete := FALSE;
+      Node@.SubCount   := 0;
+      SemanticParList(Node@.ParList);
+      Node@.IsComplete := TRUE;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "text") then
+      /* text is a pointer to array of bytes */
+      Node@.Spec       := TYPE_PTR;
+      Node@.IsComplete := TRUE;
+      Node@.SubCount   := 0;
+      Node@.SubType    := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+      Node@.SubType@.Type       := AST_TYPE;
+      Node@.SubType@.Lexeme     := NULL;
+      Node@.SubType@.ArraySize  := NULL;
+      Node@.SubType@.ParList    := NULL;
+      Node@.SubType@.RetType    := NULL;
+      Node@.SubType@.Spec       := TYPE_ARRAY;
+      Node@.SubType@.IsComplete := FALSE;
+      Node@.SubType@.SubCount   := 0;
+      Node@.SubType@.SubType    := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+      Node@.SubType@.SubType@.Type       := AST_TYPE;
+      Node@.SubType@.SubType@.Lexeme     := NULL;
+      Node@.SubType@.SubType@.ArraySize  := NULL;
+      Node@.SubType@.SubType@.ParList    := NULL;
+      Node@.SubType@.SubType@.RetType    := NULL;
+      Node@.SubType@.SubType@.Spec       := TYPE_BYTE;
+      Node@.SubType@.SubType@.IsComplete := TRUE;
+      Node@.SubType@.SubType@.SubCount   := 0;
+   elsif Node@.Lexeme@.Type == LEX_IDENTIFIER then
+      /* identifier */
+      Sym := SymtabGetSym(Node@.Lexeme@.Value);
+      if Sym == NULL or Sym@.IsTyp != TRUE then
+         SemanticError(Node@.Lexeme, SERR_NOT_TYP);
+         Node@.SubType    := NULL;
+         Node@.ArraySize  := NULL;
+         Node@.ParList    := NULL;
+         Node@.RetType    := NULL;
+         Node@.Spec       := TYPE_VOID;
+         Node@.SubCount   := 0;
+         Node@.IsComplete := FALSE;
+      else
+         Node@.SubType    := Sym@.Type@.SubType;
+         Node@.ArraySize  := Sym@.Type@.ArraySize;
+         Node@.ParList    := Sym@.Type@.ParList;
+         Node@.RetType    := Sym@.Type@.RetType;
+         Node@.Spec       := Sym@.Type@.Spec;
+         Node@.SubCount   := Sym@.Type@.SubCount;
+         Node@.IsComplete := Sym@.Type@.IsComplete;
+      endif;
+   else
+      SemanticError(NULL, SERR_TYPE_BUG);
+   endif;
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticAsm                                    */
+/*****************************************************************************/
+
+def SemanticAsm: func(Node: @ASTAsmNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticStr                                    */
+/*****************************************************************************/
+
+def SemanticStr: func(Node: @ASTStrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticChar                                   */
+/*****************************************************************************/
+
+def SemanticChar: func(Node: @ASTCharNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticInt                                    */
+/*****************************************************************************/
+
+def SemanticInt: func(Node: @ASTIntNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             SemanticId                                    */
+/*****************************************************************************/
+
+def SemanticId: func(Node: @ASTIdNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticCast                                   */
+/*****************************************************************************/
+
+def SemanticCast: func(Node: @ASTCastNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticCall                                   */
+/*****************************************************************************/
+
+def SemanticCall: func(Node: @ASTCallNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticMember                                 */
+/*****************************************************************************/
+
+def SemanticMember: func(Node: @ASTMemberNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticIndex                                  */
+/*****************************************************************************/
+
+def SemanticIndex: func(Node: @ASTIndexNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticDeref                                  */
+/*****************************************************************************/
+
+def SemanticDeref: func(Node: @ASTDerefNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticPostDec                                 */
+/*****************************************************************************/
+
+def SemanticPostDec: func(Node: @ASTPostDecNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticPostInc                                 */
+/*****************************************************************************/
+
+def SemanticPostInc: func(Node: @ASTPostIncNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                          SemanticUnsigned                                 */
+/*****************************************************************************/
+
+def SemanticUnsigned: func(Node: @ASTUnsignedNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticSizeof                                  */
+/*****************************************************************************/
+
+def SemanticSizeof: func(Node: @ASTSizeofNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticRef                                    */
+/*****************************************************************************/
+
+def SemanticRef: func(Node: @ASTRefNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticBitCompl                                */
+/*****************************************************************************/
+
+def SemanticBitCompl: func(Node: @ASTBitComplNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             SemanticNot                                   */
+/*****************************************************************************/
+
+def SemanticNot: func(Node: @ASTNotNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticNegative                                */
+/*****************************************************************************/
+
+def SemanticNegative: func(Node: @ASTNegativeNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticPositive                                */
+/*****************************************************************************/
+
+def SemanticPositive: func(Node: @ASTPositiveNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticPreDec                                  */
+/*****************************************************************************/
+
+def SemanticPreDec: func(Node: @ASTPreDecNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticPreInc                                  */
+/*****************************************************************************/
+
+def SemanticPreInc: func(Node: @ASTPreIncNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticMod                                    */
+/*****************************************************************************/
+
+def SemanticMod: func(Node: @ASTModNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticDiv                                    */
+/*****************************************************************************/
+
+def SemanticDiv: func(Node: @ASTDivNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticMul                                    */
+/*****************************************************************************/
+
+def SemanticMul: func(Node: @ASTMulNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticSub                                    */
+/*****************************************************************************/
+
+def SemanticSub: func(Node: @ASTSubNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticAdd                                    */
+/*****************************************************************************/
+
+def SemanticAdd: func(Node: @ASTAddNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                          SemanticShiftRight                               */
+/*****************************************************************************/
+
+def SemanticShiftRight: func(Node: @ASTShiftRightNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                          SemanticShiftLeft                                */
+/*****************************************************************************/
+
+def SemanticShiftLeft: func(Node: @ASTShiftLeftNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticLessEq                                  */
+/*****************************************************************************/
+
+def SemanticLessEq: func(Node: @ASTLessEqNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticLess                                   */
+/*****************************************************************************/
+
+def SemanticLess: func(Node: @ASTLessNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticGreatEq                                 */
+/*****************************************************************************/
+
+def SemanticGreatEq: func(Node: @ASTGreatEqNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticGreat                                  */
+/*****************************************************************************/
+
+def SemanticGreat: func(Node: @ASTGreatNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticNotEqual                                */
+/*****************************************************************************/
+
+def SemanticNotEqual: func(Node: @ASTNotEqualNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticEqual                                  */
+/*****************************************************************************/
+
+def SemanticEqual: func(Node: @ASTEqualNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticBitAnd                                 */
+/*****************************************************************************/
+
+def SemanticBitAnd: func(Node: @ASTBitAndNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticBitXor                                 */
+/*****************************************************************************/
+
+def SemanticBitXor: func(Node: @ASTBitXorNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticBirOr                                  */
+/*****************************************************************************/
+
+def SemanticBitOr: func(Node: @ASTBitOrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticLogicAnd                                */
+/*****************************************************************************/
+
+def SemanticLogicAnd: func(Node: @ASTLogicAndNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticLogicOr                                 */
+/*****************************************************************************/
+
+def SemanticLogicOr: func(Node: @ASTLogicOrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticCond                                   */
+/*****************************************************************************/
+
+def SemanticCond: func(Node: @ASTCondNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticAssign                                  */
+/*****************************************************************************/
+
+def SemanticAssign: func(Node: @ASTAssignNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticExpr                                   */
+/*****************************************************************************/
+
+def SemanticExpr: func(Node: @ASTExprNodeT)
+begin
+
+   case Node@.Type
+
+      when AST_ASSIGN:
+         SemanticAssign(Node as @ASTAssignNodeT);
+
+      when AST_CONDITIONAL:
+         SemanticCond(Node as @ASTCondNodeT);
+
+      when AST_LOGIC_OR:
+         SemanticLogicOr(Node as @ASTLogicOrNodeT);
+
+      when AST_LOGIC_AND:
+         SemanticLogicAnd(Node as @ASTLogicAndNodeT);
+
+      when AST_BIT_OR:
+         SemanticBitOr(Node as @ASTBitOrNodeT);
+
+      when AST_BIT_XOR:
+         SemanticBitXor(Node as @ASTBitXorNodeT);
+
+      when AST_BIT_AND:
+         SemanticBitAnd(Node as @ASTBitAndNodeT);
+
+      when AST_EQUAL:
+         SemanticEqual(Node as @ASTEqualNodeT);
+
+      when AST_NOT_EQUAL:
+         SemanticNotEqual(Node as @ASTNotEqualNodeT);
+
+      when AST_GREATER:
+         SemanticGreat(Node as @ASTGreatNodeT);
+
+      when AST_GREATER_EQUAL:
+         SemanticGreatEq(Node as @ASTGreatEqNodeT);
+
+      when AST_LESS:
+         SemanticLess(Node as @ASTLessNodeT);
+
+      when AST_LESS_EQUAL:
+         SemanticLessEq(Node as @ASTLessEqNodeT);
+
+      when AST_SHIFT_LEFT:
+         SemanticShiftLeft(Node as @ASTShiftLeftNodeT);
+
+      when AST_SHIFT_RIGHT:
+         SemanticShiftRight(Node as @ASTShiftRightNodeT);
+
+      when AST_ADD:
+         SemanticAdd(Node as @ASTAddNodeT);
+
+      when AST_SUB:
+         SemanticSub(Node as @ASTSubNodeT);
+
+      when AST_MUL:
+         SemanticMul(Node as @ASTMulNodeT);
+
+      when AST_DIV:
+         SemanticDiv(Node as @ASTDivNodeT);
+
+      when AST_MOD:
+         SemanticMod(Node as @ASTModNodeT);
+
+      when AST_PRE_INC:
+         SemanticPreInc(Node as @ASTPreIncNodeT);
+
+      when AST_PRE_DEC:
+         SemanticPreDec(Node as @ASTPreDecNodeT);
+
+      when AST_POSITIVE:
+         SemanticPositive(Node as @ASTPositiveNodeT);
+
+      when AST_NEGATIVE:
+         SemanticNegative(Node as @ASTNegativeNodeT);
+
+      when AST_NOT:
+         SemanticNot(Node as @ASTNotNodeT);
+
+      when AST_BIT_COMPL:
+         SemanticBitCompl(Node as @ASTBitComplNodeT);
+
+      when AST_REFERENCE:
+         SemanticRef(Node as @ASTRefNodeT);
+
+      when AST_SIZEOF:
+         SemanticSizeof(Node as @ASTSizeofNodeT);
+
+      when AST_UNSIGNED:
+         SemanticUnsigned(Node as @ASTUnsignedNodeT);
+
+      when AST_POST_INC:
+         SemanticPostInc(Node as @ASTPostIncNodeT);
+
+      when AST_POST_DEC:
+         SemanticPostDec(Node as @ASTPostDecNodeT);
+
+      when AST_DEREFERENCE:
+         SemanticDeref(Node as @ASTDerefNodeT);
+
+      when AST_INDEX:
+         SemanticIndex(Node as @ASTIndexNodeT);
+
+      when AST_MEMBER:
+         SemanticMember(Node as @ASTMemberNodeT);
+
+      when AST_CALL:
+         SemanticCall(Node as @ASTCallNodeT);
+
+      when AST_CAST:
+         SemanticCast(Node as @ASTCastNodeT);
+
+      when AST_IDENTIFIER:
+         SemanticId(Node as @ASTIdNodeT);
+
+      when AST_INT_LITERAL:
+         SemanticInt(Node as @ASTIntNodeT);
+
+      when AST_CHAR_LITERAL:
+         SemanticChar(Node as @ASTCharNodeT);
+
+      when AST_STR_LITERAL:
+         SemanticStr(Node as @ASTStrNodeT);
+
+      when AST_ASSEMBLER:
+         SemanticAsm(Node as @ASTAsmNodeT);
+
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                         SemanticExprList                                  */
+/*****************************************************************************/
+
+def SemanticExprList: func(Node: @ASTExprListNodeT)
+
+   /* local variables */
+   def ExprNode : @ASTExprNodeT;
+
+begin
+
+   /* loop over dim statements */
+   ExprNode := Node@.FirstExpr;
+   while ExprNode != NULL do
+      SemanticExpr(ExprNode);
+      ExprNode := ExprNode@.Next;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticWhile                                   */
+/*****************************************************************************/
+
+def SemanticWhile: func(Node: @ASTWhileNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticFor                                    */
+/*****************************************************************************/
+
+def SemanticFor: func(Node: @ASTForNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticCase                                    */
+/*****************************************************************************/
+
+def SemanticCase: func(Node: @ASTCaseNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticIf                                     */
+/*****************************************************************************/
+
+def SemanticIf: func(Node: @ASTIfNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticStmt                                   */
+/*****************************************************************************/
+
+def SemanticStmt: func(Node: @ASTStmtNodeT)
+begin
+
+   case Node@.Type
+
+      when AST_IF:
+         SemanticIf(Node as @ASTIfNodeT);
+
+      when AST_CASE:
+         SemanticCase(Node as @ASTCaseNodeT);
+
+      when AST_FOR:
+         SemanticFor(Node as @ASTForNodeT);
+
+      when AST_WHILE:
+         SemanticWhile(Node as @ASTWhileNodeT);
+
+      when AST_EXPR_LIST:
+         SemanticExprList(Node as @ASTExprListNodeT);
+
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                          SemanticStmtList                                 */
+/*****************************************************************************/
+
+def SemanticStmtList: func(Node: @ASTStmtListNodeT)
+
+   /* local variables */
+   def StmtNode : @ASTStmtNodeT;
+
+begin
+
+   /* loop over dim statements */
+   StmtNode := Node@.FirstStmt;
+   while StmtNode != NULL do
+      SemanticStmt(StmtNode);
+      StmtNode := StmtNode@.Next;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                            SemanticFunc                                   */
+/*****************************************************************************/
+
+def SemanticFunc: func(Node: @ASTFuncNodeT)
+
+begin
+
+   /* process dim list */
+   SemanticDimList(Node@.DimList);
+
+   /* process statements */
+   SemanticStmtList(Node@.StmtList);
+
+   /* TODO: process return */
+
+end;
+
+/*****************************************************************************/
+/*                             SemanticDim                                   */
+/*****************************************************************************/
+
+def SemanticDim: func(Node: @ASTDimNodeT)
+
+   def Sym     : @SymbolT;
+   def CurType : @ASTTypeNodeT;
+   def CurPar  : @ASTParNodeT;
+
+begin
+
+   /* annotate with dim type */
+   if UtilsStringIsEqual(Node@.Lexeme@.Value, "dec") then
+      Node@.DimType := DIM_DEC;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "def") then
+      Node@.DimType := DIM_DEF;
+   elsif UtilsStringIsEqual(Node@.Lexeme@.Value, "typ") then
+      Node@.DimType := DIM_TYP;
+   endif;
+
+   /* choose the semantic behaviour based on dim type */
+   case Node@.DimType
+
+      /* Variable/Function Declaration */
+      /* ----------------------------- */
+      when DIM_DEC:
+
+         /* has local? */
+         if Node@.Local != NULL then
+            SemanticError(Node@.Local, SERR_LOCAL_MEAN);
+         endif;
+
+         /* has initializer? */
+         if Node@.Initializer != NULL then
+            SemanticError(Node@.Lexeme, SERR_DEC_INIT);
+         endif;
+
+         /* has implementation? */
+         if Node@.FuncNode != NULL then
+            SemanticError(Node@.Lexeme, SERR_FUNC_DEF);
+         endif;
+
+         /* has storage? */
+         if Node@.Location != NULL then
+            SemanticError(Node@.Location, SERR_DEC_LOC);
+         endif;
+
+         /* has type? */
+         if Node@.TypeNode == NULL then
+            SemanticError(Node@.Lexeme, SERR_TYPE_DECL);
+         else
+            SemanticType(Node@.TypeNode);
+         endif;
+
+         /* add to symtab */
+         Sym := SymtabGetSym(Node@.Identifier@.Value);
+         if Sym == NULL  or Sym@.Scope != SymtabGetScope() then
+            SymtabAddSym(Node@.Identifier@.Value, Node@.TypeNode, NULL);
+            Sym := SymtabGetSym(Node@.Identifier@.Value);
+            Sym@.IsDec := TRUE;
+         else
+            /* declared before */
+            if Sym@.IsDec == TRUE then
+               /* it's fine to re-declare any symbol */
+            else
+               /* you can't re-declare a defined symbol */
+               SemanticError(Node@.Identifier, SERR_DEF_BEF);
+            endif;
+         endif;
+
+      /* Variable/Function Defnition */
+      /* --------------------------- */
+      when DIM_DEF:
+
+         /* has local? */
+         if Node@.Local != NULL then
+            /* local has be defined on global variables */
+            if SymtabGetScope() > 1 then
+               SemanticError(Node@.Local, SERR_LOCAL_SCOPE);
+            else
+               Node@.HasLocal := TRUE;
+            endif;
+         endif;
+
+         /* has type? */
+         if Node@.TypeNode == NULL then
+            /* no type */
+            SemanticError(Node@.Lexeme, SERR_TYPE_DECL);
+         else
+            /* process type */
+            SemanticType(Node@.TypeNode);
+            /* function or variable? */
+            if Node@.TypeNode@.Spec == TYPE_FUNC then
+               /* define a function */
+               if SymtabGetScope() > 1 then
+                  SemanticError(Node@.Lexeme, SERR_FUNC_REC);
+               endif;
+               /* storage? */
+               if Node@.Location != NULL then
+                  SemanticError(Node@.Location, SERR_FUNC_IN);
+               endif;
+               /* initializer? */
+               if Node@.Initializer != NULL then
+                  SemanticError(Node@.Lexeme, SERR_FUNC_INIT);
+               endif;
+               /* no implementation? */
+               if Node@.FuncNode == NULL then
+                  SemanticError(Node@.Lexeme, SERR_FUNC_DEC);
+               endif;
+               /* add function to symtab */
+               Sym := SymtabGetSym(Node@.Identifier@.Value);
+               if Sym == NULL or Sym@.Scope != SymtabGetScope() then
+                  SymtabAddSym(Node@.Identifier@.Value, Node@.TypeNode, NULL);
+               else
+                  /* declared? */
+                  if Sym@.IsDec == TRUE then
+                     if !SemanticTypeMatch(Node@.TypeNode, Sym@.Type) then
+                        SemanticError(Node@.Identifier, SERR_DEC_MIS);
+                     endif;
+                     Sym@.IsDec := FALSE;
+                  else
+                     SemanticError(Node@.Identifier, SERR_DEF_BEF);
+                  endif;
+               endif;
+               /* enter a new scope */
+               SymtabIncScope();
+               /* add function parameters to symtab */
+               CurPar := Node@.TypeNode@.ParList@.FirstPar;
+               while CurPar != NULL do
+                  /* add parameter */
+                  SymtabAddSym(CurPar@.Lexeme@.Value, CurPar@.TypeNode, NULL);
+                  /* next parameter */
+                  CurPar := CurPar@.Next;
+               loop;
+               /* handle the semantics of the function */
+               SemanticFunc(Node@.FuncNode);
+               /* exit scope */
+               SymtabDecScope();
+            else
+               /* define a variable */
+               if Node@.TypeNode@.IsComplete == FALSE then
+                  SemanticError(Node@.TypeNode@.Lexeme, SERR_DEF_COMPL);
+               endif;
+               /* storage? */
+               if Node@.Location != NULL then
+                  /* annotate */
+                  if UtilsStringIsEqual(Node@.Location@.Value, "code")
+                  then
+                     Node@.Store := STORE_CODE;
+                  elsif UtilsStringIsEqual(Node@.Location@.Value, "rodata")
+                  then
+                     Node@.Store := STORE_RODATA;
+                  elsif UtilsStringIsEqual(Node@.Location@.Value, "rwdata")
+                  then
+                     Node@.Store := STORE_RWDATA;
+                  elsif UtilsStringIsEqual(Node@.Location@.Value, "emdata")
+                  then
+                     if Node@.Initializer != NULL then
+                        SemanticError(Node@.Location, SERR_STOR_INIT);
+                     endif;
+                     Node@.Store := STORE_EMDATA;
+                  elsif UtilsStringIsEqual(Node@.Location@.Value, "stack")
+                  then
+                     if SymtabGetScope() == 1 then
+                        SemanticError(Node@.Location, SERR_STOR_SCOPE);
+                     endif;
+                     Node@.Store := STORE_STACK;
+                  elsif UtilsStringIsEqual(Node@.Location@.Value, "register")
+                  then
+                     if SymtabGetScope() == 1 then
+                        SemanticError(Node@.Location, SERR_STOR_SCOPE);
+                     endif;
+                     Node@.Store := STORE_REG;
+                  endif;
+               else
+                  /* automatically decide where to store the variable */
+                  if SymtabGetScope() == 1 then
+                     if Node@.Initializer != NULL then
+                        Node@.Store := STORE_RWDATA;
+                     else
+                        Node@.Store := STORE_EMDATA;
+                     endif;
+                  else
+                     Node@.Store := STORE_STACK;
+                  endif;
+               endif;
+               /* has initializer? */
+               if Node@.Initializer != NULL then
+                  /* handle initializer semantics */
+                  SemanticExpr(Node@.Initializer);
+                  /* initializer must be literal */
+                  if Node@.Initializer@.Type != AST_INT_LITERAL then
+                     SemanticError(Node@.Initializer@.Lexeme, SERR_INIT_LIT);
+                  endif;
+               endif;
+               /* add to symtab */
+               Sym := SymtabGetSym(Node@.Identifier@.Value);
+               if Sym == NULL  or Sym@.Scope != SymtabGetScope() then
+                  SymtabAddSym(Node@.Identifier@.Value, Node@.TypeNode, NULL);
+               else
+                  /* declared? */
+                  if Sym@.IsDec == TRUE then
+                     if !SemanticTypeMatch(Node@.TypeNode, Sym@.Type) then
+                        SemanticError(Node@.Identifier, SERR_DEC_MIS);
+                     endif;
+                     Sym@.IsDec := FALSE;
+                  else
+                     SemanticError(Node@.Identifier, SERR_DEF_BEF);
+                  endif;
+               endif;
+            endif;
+         endif;
+
+      /* Type Declaration */
+      /* ---------------- */
+      when DIM_TYP:
+
+         /* has local? */
+         if Node@.Local != NULL then
+            SemanticError(Node@.Local, SERR_LOCAL_MEAN);
+         endif;
+
+         /* has initializer? */
+         if Node@.Initializer != NULL then
+            SemanticError(Node@.Lexeme, SERR_DEC_INIT);
+         endif;
+
+         /* has implementation? */
+         if Node@.FuncNode != NULL then
+            SemanticError(Node@.Lexeme, SERR_FUNC_DEF);
+         endif;
+
+         /* has storage? */
+         if Node@.Location != NULL then
+            SemanticError(Node@.Location, SERR_TYP_LOC);
+         endif;
+
+         /* create a void symbol */
+         Sym := SymtabGetSym(Node@.Identifier@.Value);
+         if Sym == NULL  or Sym@.Scope != SymtabGetScope() then
+            SymtabAddSym(Node@.Identifier@.Value, NULL, NULL);
+            Sym := SymtabGetSym(Node@.Identifier@.Value);
+            Sym@.IsTyp := TRUE;
+         else
+            /* declared before as type? */
+            if Sym@.IsTyp == TRUE then
+               /* it's fine to re-type any type symbol */
+            else
+               /* you can't re-type a defined symbol */
+               SemanticError(Node@.Identifier, SERR_DEF_BEF);
+            endif;
+         endif;
+
+         /* has type? */
+         if Node@.TypeNode != NULL then
+            /* assign type to the symbol */
+            Sym@.Type := Node@.TypeNode;
+            /* process type */
+            SemanticType(Node@.TypeNode);
+         else
+            Sym@.Type    := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+            Sym@.Type@.Type       := AST_TYPE;
+            Sym@.Type@.Lexeme     := NULL;
+            Sym@.Type@.SubType    := NULL;
+            Sym@.Type@.ArraySize  := NULL;
+            Sym@.Type@.ParList    := NULL;
+            Sym@.Type@.RetType    := NULL;
+            Sym@.Type@.Spec       := TYPE_VOID;
+            Sym@.Type@.IsComplete := FALSE;
+            Sym@.Type@.SubCount   := 0;
+         endif;
+
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                           SemanticDimList                                 */
+/*****************************************************************************/
+
+def SemanticDimList: func(Node: @ASTDimListNodeT)
+
+   /* local variables */
+   def DimNode : @ASTDimNodeT;
+
+begin
+
+   /* loop over dim statements */
+   DimNode := Node@.FirstDim;
+   while DimNode != NULL do
+      SemanticDim(DimNode);
+      DimNode := DimNode@.Next;
+   loop;
+
+end;
 
 /*****************************************************************************/
 /*                            SemanticFile                                   */
@@ -26,7 +1178,14 @@
 def SemanticFile: func(Node: @ASTFileNodeT)
 begin
 
-   UtilsConsoleWriteStr("Welcome from file!\n");
+   /* enter scope */
+   SymtabIncScope();
+
+   /* process dim list */
+   SemanticDimList(Node@.DimList);
+
+   /* leave scope */
+   SymtabDecScope();
 
 end;
 
@@ -37,7 +1196,7 @@ end;
 def SemanticInit: func()
 begin
 
-   /* initialize unsigned flag */
+   /* do nothing */
 
 end;
 

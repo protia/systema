@@ -15,6 +15,91 @@
 /*                               Globals                                     */
 /*****************************************************************************/
 
+def FirstSym: @SymbolT;
+def CurScope : Int32T;
+
+/*****************************************************************************/
+/*                           SymtabIncScope                                  */
+/*****************************************************************************/
+
+def SymtabIncScope: func()
+begin
+
+   /* just increase the scope by one */
+   CurScope++;
+
+end;
+
+/*****************************************************************************/
+/*                           SymtabDecScope                                  */
+/*****************************************************************************/
+
+def SymtabDecScope: func()
+begin
+
+   /* first, remove all symbols of the current scope */
+   while FirstSym != NULL and FirstSym@.Scope == CurScope do
+      FirstSym := FirstSym@.Next;
+   loop;
+
+   /* now decrease the scope */
+   CurScope--;
+
+end;
+
+
+/*****************************************************************************/
+/*                           SymtabGetScope                                  */
+/*****************************************************************************/
+
+def SymtabGetScope: func() returns Int32T
+begin
+
+   /* return current scope */
+   return CurScope;
+
+end;
+
+/*****************************************************************************/
+/*                             SymtabGetSym                                  */
+/*****************************************************************************/
+
+def SymtabGetSym: func(Name: @StringT) returns @SymbolT
+   def CurSym: @SymbolT;
+   def Done  : BooleanT;
+begin
+   CurSym := FirstSym;
+   Done   := FALSE;
+   while !Done and CurSym != NULL do
+      if UtilsStringIsEqual(Name, CurSym@.Name) then
+         Done   := TRUE;
+      else
+         CurSym := CurSym@.Next;
+      endif;
+   loop;
+   return CurSym;
+end;
+
+/*****************************************************************************/
+/*                             SymtabAddSym                                  */
+/*****************************************************************************/
+
+def SymtabAddSym: func(Name: @StringT, Type: @ASTTypeNodeT, Loc: @StringT)
+   /* local vars */
+   def Sym: @SymbolT;
+begin
+   /* allocate symbol */
+   Sym        := UtilsMemAlloc(sizeof(SymbolT));
+   Sym@.Next  := FirstSym;
+   Sym@.Name  := Name;
+   Sym@.Type  := Type;
+   Sym@.Loc   := Loc;
+   Sym@.Scope := CurScope;
+   Sym@.IsDec := FALSE;
+   Sym@.IsTyp := FALSE;
+   FirstSym   := Sym;
+end;
+
 /*****************************************************************************/
 /*                             SymtabInit                                    */
 /*****************************************************************************/
@@ -22,7 +107,11 @@
 def SymtabInit: func()
 begin
 
-   /* initialize unsigned flag */
+   /* initialize symbol table */
+   FirstSym := NULL;
+
+   /* no scope at the beginning */
+   CurScope := 0;
 
 end;
 

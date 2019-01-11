@@ -7,6 +7,30 @@
 /* We need the "Lexeme" definition */
 #include "Lexer.inc"
 
+/* dim types */
+#define DIM_TYP 0
+#define DIM_DEC 1
+#define DIM_DEF 2
+
+/* storage classes */
+#define STORE_CODE   0
+#define STORE_RODATA 1
+#define STORE_RWDATA 2
+#define STORE_EMDATA 3
+#define STORE_STACK  4
+#define STORE_REG    5
+
+/* type specifiers */
+#define TYPE_VOID       0
+#define TYPE_BYTE       1
+#define TYPE_HALF       2
+#define TYPE_WORD       3
+#define TYPE_DOBL       4
+#define TYPE_PTR        5
+#define TYPE_ARRAY      6
+#define TYPE_FUNC       7
+#define TYPE_RECORD     8
+
 /* AST node types */
 #define AST_FILE          1
 #define AST_DIM_LIST      2
@@ -159,7 +183,10 @@ typ ASTTypeNodeT: record
    SubType     : @ASTTypeNodeT,
    ArraySize   : @ASTExprNodeT,
    ParList     : @ASTParListNodeT,
-   RetType     : @ASTTypeNodeT
+   RetType     : @ASTTypeNodeT,
+   Spec        : Int32T,
+   SubCount    : Int32T,
+   IsComplete  : BooleanT
 );
 
 /* Expr Node */
@@ -582,7 +609,11 @@ typ ASTDimNodeT: record
    TypeNode    : @ASTTypeNodeT,
    Location    : @LexemeT,
    Initializer : @ASTExprNodeT,
-   FuncNode    : @ASTFuncNodeT
+   FuncNode    : @ASTFuncNodeT,
+   DimType     : Int32T,
+   Store       : Int32T,
+   HasLocal    : BooleanT
+
 );
 
 /* Dim List Node */

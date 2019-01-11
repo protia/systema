@@ -257,8 +257,6 @@ for sample in $SAMPLES; do
 	# steps
 	$SYSM in=$sys_file out=$pre_file
 	$SYSF in=$pre_file out=$int_file
-
-	continue
 	$SYSB in=$int_file out=$asm_file
 	$SYSA in=$asm_file out=$obj_file
 	$SYSL in=$obj_file out=$pro_file

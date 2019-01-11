@@ -366,7 +366,7 @@ begin
       TypeNode@.SubType := ParserType();
 
       /* end of array type */
-      TypeNode@.Lexeme := ParserOperator("]");
+      ParserOperator("]");
 
    elsif UtilsStringIsEqual(CurLexeme@.Value, "@") then
 
@@ -1855,13 +1855,14 @@ begin
       /* initialization */
       if UtilsStringIsEqual(CurLexeme@.Value, ":=") then
          /* variable initialization */
-         // ParserExpression()
+         ParserOperator(":=");
+         DimNode@.Initializer := ParserExpr();
       elsif UtilsStringIsEqual(CurLexeme@.Value, "begin") or
             UtilsStringIsEqual(CurLexeme@.Value, "def") or
             UtilsStringIsEqual(CurLexeme@.Value, "dec") or
             UtilsStringIsEqual(CurLexeme@.Value, "typ") then
          /* function */
-         ParserFunc();
+         DimNode@.FuncNode := ParserFunc();
       endif;
    endif;
 

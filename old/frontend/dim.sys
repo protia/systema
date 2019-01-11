@@ -220,7 +220,7 @@ begin
     /* don't stop? */
     if !stop then
 
-	/* parse type */
+        /* parse type */
         type := parse_as_type();
 
         /* function or variable? */
