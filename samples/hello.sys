@@ -17,15 +17,22 @@ dec printf as func (fmt : text, ...      ) returns byte;
 
 /* main function */
 def main as func (argc: four, argv: @[text]) returns four
-    def i  as eigh;
+
+   /* local variables */
+   def i as eigh;
+
 begin
-    /* initialize loop counter */
-    i := 0;
-    /* loop over arguments */
-    while i < argc do
-        printf("arg %d: %s\n", i, argv@[i]);
-        i++;
-    loop;
-    /* done */
-    return 0;
+
+   /* initialize loop counter */
+   i := 0;
+
+   /* loop over arguments */
+   while i < argc do
+      printf("arg %d: %s\n", i, argv@[i]);
+      i++;
+   loop;
+
+   /* done */
+   return 0;
+
 end;

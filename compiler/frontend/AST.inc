@@ -194,7 +194,11 @@ typ ASTExprNodeT: record
 (
    Type        : Int32T,
    Lexeme      : @LexemeT,
-   Next        : @ASTExprNodeT
+   Next        : @ASTExprNodeT,
+   TypeNode    : @ASTTypeNodeT,
+   LValue      : BooleanT,
+   Indir       : BooleanT,
+   Loc         : @StringT
 );
 
 /* Assembler Node */

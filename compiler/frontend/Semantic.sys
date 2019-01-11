@@ -252,7 +252,25 @@ end;
 /*****************************************************************************/
 
 def SemanticAsm: func(Node: @ASTAsmNodeT)
+
+   /* local variables */
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate as void expression */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.SubType     := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_VOID;
+   NewType@.IsComplete  := FALSE;
+   NewType@.SubCount    := 0;
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := FALSE;
 
 end;
 
@@ -261,7 +279,42 @@ end;
 /*****************************************************************************/
 
 def SemanticStr: func(Node: @ASTStrNodeT)
+
+   /* local variables */
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate as @[char] */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_PTR;
+   NewType@.IsComplete  := TRUE;
+   NewType@.SubCount    := 0;
+   NewType@.SubType     := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.SubType@.Type       := AST_TYPE;
+   NewType@.SubType@.Lexeme     := NULL;
+   NewType@.SubType@.ArraySize  := NULL;
+   NewType@.SubType@.ParList    := NULL;
+   NewType@.SubType@.RetType    := NULL;
+   NewType@.SubType@.Spec       := TYPE_ARRAY;
+   NewType@.SubType@.IsComplete := FALSE;
+   NewType@.SubType@.SubCount   := 0;
+   NewType@.SubType@.SubType    := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.SubType@.SubType@.Type       := AST_TYPE;
+   NewType@.SubType@.SubType@.Lexeme     := NULL;
+   NewType@.SubType@.SubType@.ArraySize  := NULL;
+   NewType@.SubType@.SubType@.ParList    := NULL;
+   NewType@.SubType@.SubType@.RetType    := NULL;
+   NewType@.SubType@.SubType@.Spec       := TYPE_BYTE;
+   NewType@.SubType@.SubType@.IsComplete := TRUE;
+   NewType@.SubType@.SubType@.SubCount   := 0;
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := FALSE;
 
 end;
 
@@ -270,7 +323,25 @@ end;
 /*****************************************************************************/
 
 def SemanticChar: func(Node: @ASTCharNodeT)
+
+   /* local variables */
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate as byte */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.SubType     := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_BYTE;
+   NewType@.IsComplete  := TRUE;
+   NewType@.SubCount    := 0;
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := FALSE;
 
 end;
 
@@ -279,7 +350,25 @@ end;
 /*****************************************************************************/
 
 def SemanticInt: func(Node: @ASTIntNodeT)
+
+   /* local variables */
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate as four */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.SubType     := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_WORD;
+   NewType@.IsComplete  := TRUE;
+   NewType@.SubCount    := 0;
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := FALSE;
 
 end;
 
@@ -288,7 +377,55 @@ end;
 /*****************************************************************************/
 
 def SemanticId: func(Node: @ASTIdNodeT)
+
+   /* local variables */
+   def Sym     : @SymbolT;
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   Sym := SymtabGetSym(Node@.Super.Lexeme@.Value);
+   if Sym == NULL then
+      SemanticError(Node@.Super.Lexeme, SERR_NOT_DEC);
+      NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+      NewType@.Type        := AST_TYPE;
+      NewType@.Lexeme      := NULL;
+      NewType@.SubType     := NULL;
+      NewType@.ArraySize   := NULL;
+      NewType@.ParList     := NULL;
+      NewType@.RetType     := NULL;
+      NewType@.Spec        := TYPE_VOID;
+      NewType@.IsComplete  := FALSE;
+      NewType@.SubCount    := 0;
+   elsif Sym@.IsTyp == TRUE then
+      SemanticError(Node@.Super.Lexeme, SERR_IS_TYP);
+      NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+      NewType@.Type        := AST_TYPE;
+      NewType@.Lexeme      := NULL;
+      NewType@.SubType     := NULL;
+      NewType@.ArraySize   := NULL;
+      NewType@.ParList     := NULL;
+      NewType@.RetType     := NULL;
+      NewType@.Spec        := TYPE_VOID;
+      NewType@.IsComplete  := FALSE;
+      NewType@.SubCount    := 0;
+   elsif Sym@.Type == NULL then
+      NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+      NewType@.Type        := AST_TYPE;
+      NewType@.Lexeme      := NULL;
+      NewType@.SubType     := NULL;
+      NewType@.ArraySize   := NULL;
+      NewType@.ParList     := NULL;
+      NewType@.RetType     := NULL;
+      NewType@.Spec        := TYPE_VOID;
+      NewType@.IsComplete  := FALSE;
+      NewType@.SubCount    := 0;
+   else
+      NewType              := Sym@.Type;
+   endif;
+
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := TRUE;
 
 end;
 
@@ -299,6 +436,14 @@ end;
 def SemanticCast: func(Node: @ASTCastNodeT)
 begin
 
+   /* evaluate sub nodes */
+   SemanticExpr(Node@.SubExpr);
+   SemanticType(Node@.NewType);
+
+   /* TODO: allow only (ptr,int) <--> (ptr,int) */
+   Node@.Super.TypeNode := Node@.NewType;
+   Node@.Super.LValue   := Node@.SubExpr@.LValue;
+
 end;
 
 /*****************************************************************************/
@@ -306,7 +451,36 @@ end;
 /*****************************************************************************/
 
 def SemanticCall: func(Node: @ASTCallNodeT)
+
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate sub nodes */
+   SemanticExpr(Node@.FuncExpr);
+   SemanticExprList(Node@.ParList);
+
+   /* TODO: FuncExpr must be a function */
+
+   /* TODO: match the types of each node */
+
+   /* TODO: return value */
+
+   /* no return value? set type as void */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.SubType     := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_VOID;
+   NewType@.IsComplete  := FALSE;
+   NewType@.SubCount    := 0;
+
+   /* evaluate as return value */
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := FALSE;
 
 end;
 
@@ -315,7 +489,35 @@ end;
 /*****************************************************************************/
 
 def SemanticMember: func(Node: @ASTMemberNodeT)
+
+   def NewType : @ASTTypeNodeT;
+
 begin
+
+   /* evaluate sub nodes */
+   SemanticExpr(Node@.RecordExpr);
+
+   /* TODO: RecordExpr type must be record */
+
+   /* TODO: MemberLex must be a member */
+
+   /* TODO: set type */
+
+   /* error? use void */
+   NewType              := UtilsMemAlloc(sizeof(ASTTypeNodeT));
+   NewType@.Type        := AST_TYPE;
+   NewType@.Lexeme      := NULL;
+   NewType@.SubType     := NULL;
+   NewType@.ArraySize   := NULL;
+   NewType@.ParList     := NULL;
+   NewType@.RetType     := NULL;
+   NewType@.Spec        := TYPE_VOID;
+   NewType@.IsComplete  := FALSE;
+   NewType@.SubCount    := 0;
+
+   /* evaluate as member type */
+   Node@.Super.TypeNode := NewType;
+   Node@.Super.LValue   := Node@.RecordExpr@.LValue;
 
 end;
 
@@ -326,6 +528,20 @@ end;
 def SemanticIndex: func(Node: @ASTIndexNodeT)
 begin
 
+   /* evaluate sub nodes */
+   SemanticExpr(Node@.ArrayExpr);
+   SemanticExpr(Node@.IndexExpr);
+
+   /* TODO: ArrayExpr type must be array */
+
+   /* TODO: IndexExpr type must be integer */
+
+   /* type cast needed? */
+
+   /* evaluate as array subtype */
+   Node@.Super.TypeNode := Node@.ArrayExpr@.TypeNode@.SubType;
+   Node@.Super.LValue   := Node@.ArrayExpr@.LValue;
+
 end;
 
 /*****************************************************************************/
@@ -334,6 +550,15 @@ end;
 
 def SemanticDeref: func(Node: @ASTDerefNodeT)
 begin
+
+   /* evaluate sub nodes */
+   SemanticExpr(Node@.SubExpr);
+
+   /* TODO: SubExpr type must be pointer */
+
+   /* evaluate as pointer subtype */
+   Node@.Super.TypeNode := Node@.SubExpr@.TypeNode@.SubType;
+   Node@.Super.LValue   := Node@.SubExpr@.LValue;
 
 end;
 

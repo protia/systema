@@ -62,7 +62,7 @@ begin
 end;
 
 /*****************************************************************************/
-/*                             CodegenType                                   */
+/*                            CodegenParList                                 */
 /*****************************************************************************/
 
 def CodegenParList: func(Node: @ASTParListNodeT)
@@ -75,7 +75,7 @@ begin
    /* loop over parameters */
    CurPar := Node@.FirstPar;
    while CurPar != NULL do
-      /* perform semantics */
+      /* perform Codegens */
       CodegenPar(CurPar);
       /* next par */
       CurPar := CurPar@.Next;
@@ -88,7 +88,7 @@ begin
 end;
 
 /*****************************************************************************/
-/*                             CodegenType                                    */
+/*                             CodegenType                                   */
 /*****************************************************************************/
 
 def CodegenType: func(Node: @ASTTypeNodeT)
@@ -135,44 +135,630 @@ begin
 
 end;
 
-
 /*****************************************************************************/
-/*                            CodegenFunc                                    */
+/*                             CodegenAsm                                    */
 /*****************************************************************************/
 
-def CodegenFunc: func(Node: @ASTDimNodeT)
+def CodegenAsm: func(Node: @ASTAsmNodeT)
 begin
 
-   /* function definition */
-   CodegenEmitStr("define ");
-   /* return type */
-   if Node@.TypeNode@.RetType != NULL then
-      CodegenType(Node@.TypeNode@.RetType);
-      CodegenEmitStr(" ");
-   else
-      CodegenEmitStr("void ");
-   endif;
-   /* function name */
-   CodegenEmitStr("@");
-   CodegenEmitStr(Node@.Identifier@.Value);
-   /* emit parameter list */
-   CodegenEmitStr("(");
-   CodegenParList(Node@.TypeNode@.ParList);
-   CodegenEmitStr(")");
-   /* function body */
-   CodegenEmitStr("{\n");
-   /* increase scope */
+end;
 
-   /* now we should add all function parameters to symtab */
+/*****************************************************************************/
+/*                             CodegenStr                                    */
+/*****************************************************************************/
+
+def CodegenStr: func(Node: @ASTStrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenChar                                   */
+/*****************************************************************************/
+
+def CodegenChar: func(Node: @ASTCharNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenInt                                    */
+/*****************************************************************************/
+
+def CodegenInt: func(Node: @ASTIntNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                              CodegenId                                    */
+/*****************************************************************************/
+
+def CodegenId: func(Node: @ASTIdNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenCast                                   */
+/*****************************************************************************/
+
+def CodegenCast: func(Node: @ASTCastNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenCall                                   */
+/*****************************************************************************/
+
+def CodegenCall: func(Node: @ASTCallNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenMember                                 */
+/*****************************************************************************/
+
+def CodegenMember: func(Node: @ASTMemberNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenIndex                                  */
+/*****************************************************************************/
+
+def CodegenIndex: func(Node: @ASTIndexNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenDeref                                  */
+/*****************************************************************************/
+
+def CodegenDeref: func(Node: @ASTDerefNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenPostDec                                 */
+/*****************************************************************************/
+
+def CodegenPostDec: func(Node: @ASTPostDecNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenPostInc                                 */
+/*****************************************************************************/
+
+def CodegenPostInc: func(Node: @ASTPostIncNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           CodegenUnsigned                                 */
+/*****************************************************************************/
+
+def CodegenUnsigned: func(Node: @ASTUnsignedNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenSizeof                                  */
+/*****************************************************************************/
+
+def CodegenSizeof: func(Node: @ASTSizeofNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenRef                                    */
+/*****************************************************************************/
+
+def CodegenRef: func(Node: @ASTRefNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenBitCompl                                */
+/*****************************************************************************/
+
+def CodegenBitCompl: func(Node: @ASTBitComplNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                              CodegenNot                                   */
+/*****************************************************************************/
+
+def CodegenNot: func(Node: @ASTNotNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenNegative                                */
+/*****************************************************************************/
+
+def CodegenNegative: func(Node: @ASTNegativeNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenPositive                                */
+/*****************************************************************************/
+
+def CodegenPositive: func(Node: @ASTPositiveNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenPreDec                                  */
+/*****************************************************************************/
+
+def CodegenPreDec: func(Node: @ASTPreDecNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenPreInc                                  */
+/*****************************************************************************/
+
+def CodegenPreInc: func(Node: @ASTPreIncNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenMod                                    */
+/*****************************************************************************/
+
+def CodegenMod: func(Node: @ASTModNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenDiv                                    */
+/*****************************************************************************/
+
+def CodegenDiv: func(Node: @ASTDivNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenMul                                    */
+/*****************************************************************************/
+
+def CodegenMul: func(Node: @ASTMulNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenSub                                    */
+/*****************************************************************************/
+
+def CodegenSub: func(Node: @ASTSubNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenAdd                                    */
+/*****************************************************************************/
+
+def CodegenAdd: func(Node: @ASTAddNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           CodegenShiftRight                               */
+/*****************************************************************************/
+
+def CodegenShiftRight: func(Node: @ASTShiftRightNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                           CodegenShiftLeft                                */
+/*****************************************************************************/
+
+def CodegenShiftLeft: func(Node: @ASTShiftLeftNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenLessEq                                  */
+/*****************************************************************************/
+
+def CodegenLessEq: func(Node: @ASTLessEqNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenLess                                   */
+/*****************************************************************************/
+
+def CodegenLess: func(Node: @ASTLessNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenGreatEq                                 */
+/*****************************************************************************/
+
+def CodegenGreatEq: func(Node: @ASTGreatEqNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenGreat                                  */
+/*****************************************************************************/
+
+def CodegenGreat: func(Node: @ASTGreatNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenNotEqual                                */
+/*****************************************************************************/
+
+def CodegenNotEqual: func(Node: @ASTNotEqualNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenEqual                                  */
+/*****************************************************************************/
+
+def CodegenEqual: func(Node: @ASTEqualNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenBitAnd                                 */
+/*****************************************************************************/
+
+def CodegenBitAnd: func(Node: @ASTBitAndNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenBitXor                                 */
+/*****************************************************************************/
+
+def CodegenBitXor: func(Node: @ASTBitXorNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenBirOr                                  */
+/*****************************************************************************/
+
+def CodegenBitOr: func(Node: @ASTBitOrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenLogicAnd                                */
+/*****************************************************************************/
+
+def CodegenLogicAnd: func(Node: @ASTLogicAndNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenLogicOr                                 */
+/*****************************************************************************/
+
+def CodegenLogicOr: func(Node: @ASTLogicOrNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenCond                                   */
+/*****************************************************************************/
+
+def CodegenCond: func(Node: @ASTCondNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenAssign                                  */
+/*****************************************************************************/
+
+def CodegenAssign: func(Node: @ASTAssignNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenExpr                                   */
+/*****************************************************************************/
+
+def CodegenExpr: func(Node: @ASTExprNodeT)
+begin
+
+   case Node@.Type
+
+      when AST_ASSIGN:
+         CodegenAssign(Node as @ASTAssignNodeT);
+
+      when AST_CONDITIONAL:
+         CodegenCond(Node as @ASTCondNodeT);
+
+      when AST_LOGIC_OR:
+         CodegenLogicOr(Node as @ASTLogicOrNodeT);
+
+      when AST_LOGIC_AND:
+         CodegenLogicAnd(Node as @ASTLogicAndNodeT);
+
+      when AST_BIT_OR:
+         CodegenBitOr(Node as @ASTBitOrNodeT);
+
+      when AST_BIT_XOR:
+         CodegenBitXor(Node as @ASTBitXorNodeT);
+
+      when AST_BIT_AND:
+         CodegenBitAnd(Node as @ASTBitAndNodeT);
+
+      when AST_EQUAL:
+         CodegenEqual(Node as @ASTEqualNodeT);
+
+      when AST_NOT_EQUAL:
+         CodegenNotEqual(Node as @ASTNotEqualNodeT);
+
+      when AST_GREATER:
+         CodegenGreat(Node as @ASTGreatNodeT);
+
+      when AST_GREATER_EQUAL:
+         CodegenGreatEq(Node as @ASTGreatEqNodeT);
+
+      when AST_LESS:
+         CodegenLess(Node as @ASTLessNodeT);
+
+      when AST_LESS_EQUAL:
+         CodegenLessEq(Node as @ASTLessEqNodeT);
+
+      when AST_SHIFT_LEFT:
+         CodegenShiftLeft(Node as @ASTShiftLeftNodeT);
+
+      when AST_SHIFT_RIGHT:
+         CodegenShiftRight(Node as @ASTShiftRightNodeT);
+
+      when AST_ADD:
+         CodegenAdd(Node as @ASTAddNodeT);
+
+      when AST_SUB:
+         CodegenSub(Node as @ASTSubNodeT);
+
+      when AST_MUL:
+         CodegenMul(Node as @ASTMulNodeT);
+
+      when AST_DIV:
+         CodegenDiv(Node as @ASTDivNodeT);
+
+      when AST_MOD:
+         CodegenMod(Node as @ASTModNodeT);
+
+      when AST_PRE_INC:
+         CodegenPreInc(Node as @ASTPreIncNodeT);
+
+      when AST_PRE_DEC:
+         CodegenPreDec(Node as @ASTPreDecNodeT);
+
+      when AST_POSITIVE:
+         CodegenPositive(Node as @ASTPositiveNodeT);
+
+      when AST_NEGATIVE:
+         CodegenNegative(Node as @ASTNegativeNodeT);
+
+      when AST_NOT:
+         CodegenNot(Node as @ASTNotNodeT);
+
+      when AST_BIT_COMPL:
+         CodegenBitCompl(Node as @ASTBitComplNodeT);
+
+      when AST_REFERENCE:
+         CodegenRef(Node as @ASTRefNodeT);
+
+      when AST_SIZEOF:
+         CodegenSizeof(Node as @ASTSizeofNodeT);
+
+      when AST_UNSIGNED:
+         CodegenUnsigned(Node as @ASTUnsignedNodeT);
+
+      when AST_POST_INC:
+         CodegenPostInc(Node as @ASTPostIncNodeT);
+
+      when AST_POST_DEC:
+         CodegenPostDec(Node as @ASTPostDecNodeT);
+
+      when AST_DEREFERENCE:
+         CodegenDeref(Node as @ASTDerefNodeT);
+
+      when AST_INDEX:
+         CodegenIndex(Node as @ASTIndexNodeT);
+
+      when AST_MEMBER:
+         CodegenMember(Node as @ASTMemberNodeT);
+
+      when AST_CALL:
+         CodegenCall(Node as @ASTCallNodeT);
+
+      when AST_CAST:
+         CodegenCast(Node as @ASTCastNodeT);
+
+      when AST_IDENTIFIER:
+         CodegenId(Node as @ASTIdNodeT);
+
+      when AST_INT_LITERAL:
+         CodegenInt(Node as @ASTIntNodeT);
+
+      when AST_CHAR_LITERAL:
+         CodegenChar(Node as @ASTCharNodeT);
+
+      when AST_STR_LITERAL:
+         CodegenStr(Node as @ASTStrNodeT);
+
+      when AST_ASSEMBLER:
+         CodegenAsm(Node as @ASTAsmNodeT);
+
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                          CodegenExprList                                  */
+/*****************************************************************************/
+
+def CodegenExprList: func(Node: @ASTExprListNodeT)
+
+   /* local variables */
+   def ExprNode : @ASTExprNodeT;
+
+begin
+
+   /* loop over dim statements */
+   ExprNode := Node@.FirstExpr;
+   while ExprNode != NULL do
+      CodegenExpr(ExprNode);
+      ExprNode := ExprNode@.Next;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenWhile                                   */
+/*****************************************************************************/
+
+def CodegenWhile: func(Node: @ASTWhileNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenFor                                    */
+/*****************************************************************************/
+
+def CodegenFor: func(Node: @ASTForNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                            CodegenCase                                    */
+/*****************************************************************************/
+
+def CodegenCase: func(Node: @ASTCaseNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenIf                                     */
+/*****************************************************************************/
+
+def CodegenIf: func(Node: @ASTIfNodeT)
+begin
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenStmt                                   */
+/*****************************************************************************/
+
+def CodegenStmt: func(Node: @ASTStmtNodeT)
+begin
+
+   case Node@.Type
+
+      when AST_IF:
+         CodegenIf(Node as @ASTIfNodeT);
+
+      when AST_CASE:
+         CodegenCase(Node as @ASTCaseNodeT);
+
+      when AST_FOR:
+         CodegenFor(Node as @ASTForNodeT);
+
+      when AST_WHILE:
+         CodegenWhile(Node as @ASTWhileNodeT);
+
+      when AST_EXPR_LIST:
+         CodegenExprList(Node as @ASTExprListNodeT);
+
+   esac;
+
+end;
+
+/*****************************************************************************/
+/*                           CodegenStmtList                                 */
+/*****************************************************************************/
+
+def CodegenStmtList: func(Node: @ASTStmtListNodeT)
+
+   /* local variables */
+   def StmtNode : @ASTStmtNodeT;
+
+begin
+
+   /* loop over dim statements */
+   StmtNode := Node@.FirstStmt;
+   while StmtNode != NULL do
+      CodegenStmt(StmtNode);
+      StmtNode := StmtNode@.Next;
+   loop;
+
+end;
+
+/*****************************************************************************/
+/*                             CodegenFunc                                   */
+/*****************************************************************************/
+
+def CodegenFunc: func(Node: @ASTFuncNodeT)
+
+begin
 
    /* process dim list */
+   CodegenDimList(Node@.DimList);
 
    /* process statements */
+   CodegenStmtList(Node@.StmtList);
 
-   /* return expression */
-
-   /* end of function */
-   CodegenEmitStr("}\n");
+   /* TODO: process return */
 
 end;
 
@@ -224,7 +810,34 @@ begin
          /* defining a function or defining a global variable? */
          if Node@.TypeNode@.Spec == TYPE_FUNC then
             /* function definition */
-            CodegenFunc(Node);
+            CodegenEmitStr("define ");
+            /* return type */
+            if Node@.TypeNode@.RetType != NULL then
+               CodegenType(Node@.TypeNode@.RetType);
+               CodegenEmitStr(" ");
+            else
+               CodegenEmitStr("void ");
+            endif;
+            /* function name */
+            CodegenEmitStr("@");
+            CodegenEmitStr(Node@.Identifier@.Value);
+            /* emit parameter list */
+            CodegenEmitStr("(");
+            CodegenParList(Node@.TypeNode@.ParList);
+            CodegenEmitStr(")");
+            /* function body */
+            CodegenEmitStr("{\n");
+            /* increase scope */
+
+            /* now we should add all function parameters to symtab */
+
+            /* process the function */
+            CodegenFunc(Node@.FuncNode);
+
+            /* return value */
+
+            /* end of function */
+            CodegenEmitStr("}\n");
          else
             /* variable definition */
             CodegenEmitStr("@");
@@ -325,7 +938,7 @@ end;
 def CodegenPlay: func()
 begin
 
-   /* apply semantic constraints on the tree */
+   /* apply Codegen constraints on the tree */
    if ErrorFlag == FALSE then
       CodegenFile(ASTRoot as @ASTFileNodeT);
    endif;

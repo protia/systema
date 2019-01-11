@@ -33,9 +33,13 @@
 #define SERR_DEF_BEF      "Identifier was defined before."
 #define SERR_DEC_MIS      "Identifier was declared before with different type."
 #define SERR_NOT_TYP      "Identifier was not declared as type."
+#define SERR_NOT_DEC      "Identifier was not declared before."
+#define SERR_IS_TYP       "You can't use a type identifier that way."
 
 /* internal functions */
 dec SemanticType: func(Node: @ASTTypeNodeT);
+dec SemanticExpr: func(Node: @ASTExprNodeT);
+dec SemanticExprList: func(Node: @ASTExprListNodeT);
 dec SemanticDimList: func(Node: @ASTDimListNodeT);
 
 /* Init functions */

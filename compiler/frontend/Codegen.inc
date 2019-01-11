@@ -9,6 +9,7 @@
 
 /* Internal functions */
 dec CodegenType: func(Node: @ASTTypeNodeT);
+dec CodegenDimList: func(Node: @ASTDimListNodeT);
 
 /* Init functions */
 dec CodegenInit: func();
